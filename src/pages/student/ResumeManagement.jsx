@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { portalService } from '../../services/portalService';
 import {
   FileText,
   UploadCloud,
-  CheckCircle,
   Trash2,
   Download,
   AlertCircle,
-  Sparkles,
-  RefreshCw,
   FileCheck
 } from 'lucide-react';
 
@@ -24,11 +22,15 @@ const ResumeManagement = () => {
         showToast('Please upload a PDF file only.', 'error');
         return;
       }
+      if (file.size > 20 * 1024 * 1024) {
+        showToast('The PDF must be 20 MB or smaller.', 'error');
+        return;
+      }
       setSelectedFile(file);
     }
   };
 
-  const handleUploadSubmit = (e) => {
+  const handleUploadSubmit = async (e) => {
     e.preventDefault();
     if (!selectedFile) {
       showToast('Select a PDF file first.', 'error');
@@ -36,24 +38,40 @@ const ResumeManagement = () => {
     }
 
     setIsUploading(true);
-    setTimeout(() => {
-      setIsUploading(false);
-      setResumeData({
-        fileName: selectedFile.name,
-        uploadedAt: new Date().toISOString().split('T')[0],
-        fileSize: `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`,
-        atsScore: Math.floor(85 + Math.random() * 10),
-        status: 'Scanned & Verified',
-        downloadUrl: '#'
-      });
+    try {
+      const resume = await portalService.uploadResume(selectedFile);
+      setResumeData(resume);
       setSelectedFile(null);
-      showToast('Resume uploaded and scanned by ATS scanner successfully!', 'success');
-    }, 1200);
+      showToast('Resume uploaded successfully.', 'success');
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Resume upload failed.', 'error');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const handleDeleteResume = () => {
-    setResumeData(null);
-    showToast('Resume removed.', 'info');
+  const handleDeleteResume = async () => {
+    try {
+      await portalService.deleteResume();
+      setResumeData(null);
+      showToast('Resume removed.', 'info');
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Resume deletion failed.', 'error');
+    }
+  };
+
+  const handleDownloadResume = async () => {
+    try {
+      const file = await portalService.downloadResume();
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = resumeData.fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Resume download failed.', 'error');
+    }
   };
 
   return (
@@ -63,7 +81,7 @@ const ResumeManagement = () => {
       <div>
         <h1 style={{ fontSize: '1.85rem' }}>Resume Management & ATS Optimization</h1>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-          Upload your engineering resume in PDF format for automated ATS score analysis and campus drive readiness
+          Store and manage your current PDF resume.
         </p>
       </div>
 
@@ -101,7 +119,7 @@ const ResumeManagement = () => {
                   {selectedFile ? selectedFile.name : 'Click to select PDF or drag & drop'}
                 </span>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  Supported Format: PDF (Max size: 5MB)
+                  Supported format: PDF (maximum 20 MB)
                 </span>
               </label>
             </div>
@@ -112,7 +130,7 @@ const ResumeManagement = () => {
               className="btn btn-primary"
               style={{ width: '100%', padding: '0.75rem' }}
             >
-              {isUploading ? 'Scanning & Uploading PDF...' : 'Upload & Analyze Resume'}
+              {isUploading ? 'Uploading PDF...' : 'Upload Resume'}
             </button>
           </form>
         </div>
@@ -143,7 +161,7 @@ const ResumeManagement = () => {
                   <div>
                     <div style={{ fontWeight: '700', fontSize: '0.925rem' }}>{resumeData.fileName}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Uploaded: {resumeData.uploadedAt} • Size: {resumeData.fileSize}
+                      Uploaded: {resumeData.uploadedAt?.slice(0, 10)} • Size: {resumeData.fileSize}
                     </div>
                   </div>
                 </div>
@@ -153,32 +171,20 @@ const ResumeManagement = () => {
                 </span>
               </div>
 
-              {/* ATS Score Dial Box */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1rem', backgroundColor: 'rgba(79, 70, 229, 0.08)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ width: '60px', height: '60px', borderRadius: '50%', backgroundColor: 'var(--primary-600)', color: '#FFF', fontWeight: '800', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {resumeData.atsScore}%
-                </div>
-                <div>
-                  <div style={{ fontWeight: '700', fontSize: '1rem' }}>ATS Parsing Score</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-body)', marginTop: '0.2rem' }}>
-                    Keywords matched for SDE & Tech Roles: <strong>DSA, OOPs, React, SQL, Java</strong>
-                  </div>
-                </div>
-              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Automated ATS analysis is not configured for this deployment.
+              </p>
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <a
-                  href={`data:application/pdf;base64,JVBERi0xLjQKJ...`}
-                  download={resumeData.fileName}
+                <button
+                  type="button"
                   className="btn btn-secondary btn-sm"
                   style={{ flex: 1 }}
-                  onClick={(e) => {
-                    showToast(`Downloading ${resumeData.fileName}...`, 'info');
-                  }}
+                  onClick={handleDownloadResume}
                 >
                   <Download size={16} /> Download Resume
-                </a>
+                </button>
                 <button
                   onClick={handleDeleteResume}
                   className="btn btn-danger btn-sm"

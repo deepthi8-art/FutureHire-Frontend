@@ -1,15 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { portalService } from '../../services/portalService';
 import {
-  HelpCircle,
-  Code,
-  Brain,
   PlusCircle,
-  Edit,
   Trash2,
-  Search,
-  CheckCircle,
-  Sparkles
+  Search
 } from 'lucide-react';
 
 const ManageQuestions = () => {
@@ -28,7 +23,7 @@ const ManageQuestions = () => {
     sampleOutput: ''
   });
 
-  const handleAddProblemSubmit = (e) => {
+  const handleAddProblemSubmit = async (e) => {
     e.preventDefault();
     if (!questionForm.title || !questionForm.description) {
       showToast('Please fill title and description.', 'error');
@@ -51,16 +46,26 @@ const ManageQuestions = () => {
       }
     };
 
-    setCodingProblems([newProblem, ...codingProblems]);
-    showToast(`Question "${questionForm.title}" added to Question Bank!`, 'success');
-    setShowAddModal(false);
-    setQuestionForm({ title: '', difficulty: 'Easy', category: 'Arrays & Hashing', description: '', sampleInput: '', sampleOutput: '' });
+    try {
+      const savedProblem = await portalService.createAdminCodingProblem(newProblem);
+      setCodingProblems(prev => [savedProblem, ...prev]);
+      showToast(`Question "${questionForm.title}" added to Question Bank.`, 'success');
+      setShowAddModal(false);
+      setQuestionForm({ title: '', difficulty: 'Easy', category: 'Arrays & Hashing', description: '', sampleInput: '', sampleOutput: '' });
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Could not add question.', 'error');
+    }
   };
 
-  const handleDeleteProblem = (id, title) => {
+  const handleDeleteProblem = async (id, title) => {
     if (window.confirm(`Delete question "${title}"?`)) {
-      setCodingProblems(prev => prev.filter(p => p.id !== id));
-      showToast(`Question deleted.`, 'info');
+      try {
+        await portalService.deleteAdminCodingProblem(id);
+        setCodingProblems(prev => prev.filter(p => p.id !== id));
+        showToast('Question deleted.', 'info');
+      } catch (error) {
+        showToast(error.response?.data?.message || error.message || 'Could not delete question.', 'error');
+      }
     }
   };
 

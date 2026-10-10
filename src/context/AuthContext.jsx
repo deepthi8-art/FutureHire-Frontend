@@ -1,64 +1,87 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/authService';
 import { portalService } from '../services/portalService';
-import {
-  initialStudentProfile,
-  initialCodingProblems,
-  initialAptitudeQuizzes,
-  initialCompanies,
-  initialInterviewExperiences,
-  initialMockInterviews,
-  initialStudyResources,
-  initialNotifications,
-  initialAdminUsersList
-} from '../data/mockData';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => authService.getCurrentUser() || initialStudentProfile);
-  const [isAuthenticated, setIsAuthenticated] = useState(() => !!authService.getCurrentUser() || true);
+  const [user, setUser] = useState(() => authService.getCurrentUser());
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!authService.getCurrentUser());
   const [theme, setTheme] = useState(() => localStorage.getItem('futurehire_theme') || 'light');
   const [toasts, setToasts] = useState([]);
 
   // Managed Application State initialized with defaults & synced with Spring Boot API
-  const [codingProblems, setCodingProblems] = useState(initialCodingProblems);
-  const [aptitudeQuizzes, setAptitudeQuizzes] = useState(initialAptitudeQuizzes);
-  const [companies, setCompanies] = useState(initialCompanies);
-  const [experiences, setExperiences] = useState(initialInterviewExperiences);
-  const [mockInterviews, setMockInterviews] = useState(initialMockInterviews);
-  const [resources, setResources] = useState(initialStudyResources);
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const [adminUsers, setAdminUsers] = useState(initialAdminUsersList);
+  const [codingProblems, setCodingProblems] = useState([]);
+  const [codingProgress, setCodingProgress] = useState(null);
+  const [aptitudeQuizzes, setAptitudeQuizzes] = useState([]);
+  const [quizResults, setQuizResults] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [experiences, setExperiences] = useState([]);
+  const [mockInterviews, setMockInterviews] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [adminUsers, setAdminUsers] = useState([]);
   const [resumeData, setResumeData] = useState(null);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setUser(null);
+      setIsAuthenticated(false);
+      setCodingProblems([]);
+      setCodingProgress(null);
+      setAptitudeQuizzes([]);
+      setQuizResults([]);
+      setCompanies([]);
+      setExperiences([]);
+      setMockInterviews([]);
+      setResources([]);
+      setNotifications([]);
+      setAdminUsers([]);
+      setResumeData(null);
+    };
+
+    window.addEventListener('futurehire:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('futurehire:unauthorized', handleUnauthorized);
+  }, []);
 
   // Fetch real data from Spring Boot REST API when authenticated
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
-        const [liveProblems, liveQuizzes, liveCompanies, liveResources, liveNotifs, liveMockSlots, liveExperiences] = await Promise.allSettled([
+        const [liveProblems, liveProgress, liveQuizzes, liveQuizResults, liveCompanies, liveResources, liveNotifs, liveMockSlots, liveExperiences, liveBookings] = await Promise.allSettled([
           portalService.getCodingProblems(),
+          portalService.getCodingProgress(),
           portalService.getAptitudeQuizzes(),
+          portalService.getQuizResults(),
           portalService.getCompanies(),
           portalService.getStudyResources(),
           portalService.getNotifications(),
           portalService.getAvailableMockSlots(),
           portalService.getInterviewExperiences(),
+          portalService.getMyMockBookings(),
         ]);
 
-        if (liveProblems.status === 'fulfilled' && liveProblems.value?.length > 0)
+        if (liveProblems.status === 'fulfilled' && Array.isArray(liveProblems.value))
           setCodingProblems(liveProblems.value);
-        if (liveQuizzes.status === 'fulfilled' && liveQuizzes.value?.length > 0)
+        if (liveProgress.status === 'fulfilled' && liveProgress.value)
+          setCodingProgress(liveProgress.value);
+        if (liveQuizzes.status === 'fulfilled' && Array.isArray(liveQuizzes.value))
           setAptitudeQuizzes(liveQuizzes.value);
-        if (liveCompanies.status === 'fulfilled' && liveCompanies.value?.length > 0)
+        if (liveQuizResults.status === 'fulfilled' && Array.isArray(liveQuizResults.value))
+          setQuizResults(liveQuizResults.value);
+        if (liveCompanies.status === 'fulfilled' && Array.isArray(liveCompanies.value))
           setCompanies(liveCompanies.value);
-        if (liveResources.status === 'fulfilled' && liveResources.value?.length > 0)
+        if (liveResources.status === 'fulfilled' && Array.isArray(liveResources.value))
           setResources(liveResources.value);
-        if (liveNotifs.status === 'fulfilled' && liveNotifs.value?.length > 0)
+        if (liveNotifs.status === 'fulfilled' && Array.isArray(liveNotifs.value))
           setNotifications(liveNotifs.value);
-        if (liveMockSlots.status === 'fulfilled' && liveMockSlots.value?.length > 0)
-          setMockInterviews(liveMockSlots.value);
-        if (liveExperiences.status === 'fulfilled' && liveExperiences.value?.length > 0)
+        if (liveMockSlots.status === 'fulfilled' && Array.isArray(liveMockSlots.value)) {
+          const bookings = liveBookings.status === 'fulfilled' && Array.isArray(liveBookings.value)
+            ? liveBookings.value
+            : [];
+          setMockInterviews([...liveMockSlots.value, ...bookings]);
+        }
+        if (liveExperiences.status === 'fulfilled' && Array.isArray(liveExperiences.value))
           setExperiences(liveExperiences.value);
       } catch (e) {
         console.log('Spring Boot API sync complete (using active state)', e);
@@ -67,10 +90,14 @@ export const AuthProvider = ({ children }) => {
 
     const fetchAdminData = async () => {
       try {
-        const liveUsers = await portalService.getAdminUsers();
-        if (liveUsers?.length > 0) setAdminUsers(liveUsers);
+        const [liveUsers, liveMockInterviews] = await Promise.all([
+          portalService.getAdminUsers(),
+          portalService.getAdminMockInterviews()
+        ]);
+        if (Array.isArray(liveUsers)) setAdminUsers(liveUsers);
+        if (Array.isArray(liveMockInterviews)) setMockInterviews(liveMockInterviews);
       } catch (e) {
-        console.log('Admin data sync failed, using mock', e);
+        console.warn('Admin data sync failed.', e);
       }
     };
 
@@ -123,6 +150,17 @@ export const AuthProvider = ({ children }) => {
     authService.logout();
     setUser(null);
     setIsAuthenticated(false);
+    setCodingProblems([]);
+    setCodingProgress(null);
+    setAptitudeQuizzes([]);
+    setQuizResults([]);
+    setCompanies([]);
+    setExperiences([]);
+    setMockInterviews([]);
+    setResources([]);
+    setNotifications([]);
+    setAdminUsers([]);
+    setResumeData(null);
     showToast("Logged out successfully.", 'info');
   };
 
@@ -147,8 +185,10 @@ export const AuthProvider = ({ children }) => {
         // Shared state & updaters
         codingProblems,
         setCodingProblems,
+        codingProgress,
         aptitudeQuizzes,
         setAptitudeQuizzes,
+        quizResults,
         companies,
         setCompanies,
         experiences,

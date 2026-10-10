@@ -1,21 +1,31 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { portalService } from '../../services/portalService';
 import {
   Bell,
-  CheckCircle,
   Clock,
-  Sparkles,
-  Calendar,
-  AlertCircle,
   CheckCheck
 } from 'lucide-react';
 
 const Notifications = () => {
   const { notifications, setNotifications, markNotificationAsRead, showToast } = useAuth();
 
-  const handleMarkAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    showToast('All notifications marked as read.', 'info');
+  const handleMarkAllRead = async () => {
+    try {
+      await portalService.markAllNotificationsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      showToast('All notifications marked as read.', 'info');
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Could not update notifications.', 'error');
+    }
+  };
+
+  const handleMarkRead = async (id) => {
+    try {
+      await markNotificationAsRead(id);
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Could not update notification.', 'error');
+    }
   };
 
   return (
@@ -75,7 +85,7 @@ const Notifications = () => {
 
               {!n.read && (
                 <button
-                  onClick={() => markNotificationAsRead(n.id)}
+                  onClick={() => handleMarkRead(n.id)}
                   className="btn btn-secondary btn-sm"
                   style={{ whiteSpace: 'nowrap' }}
                 >

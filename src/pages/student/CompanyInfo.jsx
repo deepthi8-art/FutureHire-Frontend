@@ -1,15 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
-  Building2,
   Search,
-  CheckCircle,
   MapPin,
   DollarSign,
-  Briefcase,
-  HelpCircle,
-  ChevronRight,
-  Sparkles
+  ChevronRight
 } from 'lucide-react';
 
 const CompanyInfo = () => {

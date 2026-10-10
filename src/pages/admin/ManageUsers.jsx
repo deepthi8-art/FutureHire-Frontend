@@ -2,16 +2,9 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { portalService } from '../../services/portalService';
 import {
-  Users,
   Search,
-  UserPlus,
-  Edit,
   Trash2,
-  Eye,
-  CheckCircle,
-  XCircle,
-  Mail,
-  Building
+  Eye
 } from 'lucide-react';
 
 const ManageUsers = () => {
@@ -20,17 +13,6 @@ const ManageUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [selectedStudentView, setSelectedStudentView] = useState(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingStudent, setEditingStudent] = useState(null);
-
-  const [studentForm, setStudentForm] = useState({
-    name: '',
-    email: '',
-    department: 'CSE',
-    year: '4th Year',
-    cgpa: '8.50',
-    status: 'Active'
-  });
 
   const departments = ['All', 'CSE', 'ECE', 'IT', 'MECH', 'CIVIL'];
 
@@ -45,52 +27,17 @@ const ManageUsers = () => {
     return matchesSearch && matchesDept;
   });
 
-  const handleAddSubmit = (e) => {
-    e.preventDefault();
-    if (!studentForm.name || !studentForm.email) {
-      showToast('Please fill in required fields.', 'error');
-      return;
-    }
-
-    if (editingStudent) {
-      setAdminUsers(prev => (prev || []).map(u => u.id === editingStudent.id ? { ...u, ...studentForm } : u));
-      showToast(`Student record for ${studentForm.name} updated.`, 'success');
-      setEditingStudent(null);
-    } else {
-      const newUser = {
-        id: `STD-${Math.floor(100 + Math.random() * 900)}`,
-        ...studentForm
-      };
-      setAdminUsers([newUser, ...usersList]);
-      showToast(`Student ${studentForm.name} added successfully!`, 'success');
-    }
-
-    setShowAddModal(false);
-    setStudentForm({ name: '', email: '', department: 'CSE', year: '4th Year', cgpa: '8.50', status: 'Active' });
-  };
-
-  const handleEditClick = (student) => {
-    setEditingStudent(student);
-    setStudentForm({
-      name: student.name || student.fullName || '',
-      email: student.email || '',
-      department: student.department || 'CSE',
-      year: student.year || '4th Year',
-      cgpa: student.cgpa || '8.50',
-      status: student.status || 'Active'
-    });
-    setShowAddModal(true);
-  };
-
   const handleDeleteUser = async (student) => {
     const id = student.id;
     const name = student.name || student.fullName || 'User';
     if (window.confirm(`Are you sure you want to delete student "${name}"?`)) {
-      if (student.rawId) {
+      try {
         await portalService.deleteAdminUser(student.rawId);
+        setAdminUsers(prev => (prev || []).filter(u => u.id !== id));
+        showToast(`Student ${name} deleted.`, 'info');
+      } catch (error) {
+        showToast(error.response?.data?.message || error.message || 'Could not delete student.', 'error');
       }
-      setAdminUsers(prev => (prev || []).filter(u => u.id !== id));
-      showToast(`Student ${name} deleted.`, 'info');
     }
   };
 
@@ -106,9 +53,6 @@ const ManageUsers = () => {
           </p>
         </div>
 
-        <button onClick={() => { setEditingStudent(null); setShowAddModal(true); }} className="btn btn-primary">
-          <UserPlus size={18} /> Add New Student
-        </button>
       </div>
 
       {/* Filter & Search Bar */}
@@ -177,9 +121,6 @@ const ManageUsers = () => {
                       <button onClick={() => setSelectedStudentView(u)} className="btn btn-secondary btn-sm" title="View Profile">
                         <Eye size={15} />
                       </button>
-                      <button onClick={() => handleEditClick(u)} className="btn btn-outline btn-sm" title="Edit Student">
-                        <Edit size={15} />
-                      </button>
                       <button onClick={() => handleDeleteUser(u)} className="btn btn-danger btn-sm" title="Delete Student">
                         <Trash2 size={15} />
                       </button>
@@ -191,73 +132,6 @@ const ManageUsers = () => {
           </table>
         </div>
       </div>
-
-      {/* Add / Edit Student Modal */}
-      {showAddModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '520px' }}>
-            <h3 style={{ fontSize: '1.35rem', marginBottom: '1rem' }}>
-              {editingStudent ? 'Edit Student Details' : 'Add New Student Record'}
-            </h3>
-
-            <form onSubmit={handleAddSubmit}>
-              <div className="form-group">
-                <label className="form-label">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={studentForm.name}
-                  onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={studentForm.email}
-                  onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="grid-2">
-                <div className="form-group">
-                  <label className="form-label">Department</label>
-                  <select
-                    value={studentForm.department}
-                    onChange={(e) => setStudentForm({ ...studentForm, department: e.target.value })}
-                    className="form-select"
-                  >
-                    <option value="CSE">CSE</option>
-                    <option value="ECE">ECE</option>
-                    <option value="IT">IT</option>
-                    <option value="MECH">MECH</option>
-                    <option value="CIVIL">CIVIL</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">CGPA</label>
-                  <input
-                    type="text"
-                    value={studentForm.cgpa}
-                    onChange={(e) => setStudentForm({ ...studentForm, cgpa: e.target.value })}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
-                <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
-                <button type="submit" className="btn btn-primary btn-sm">Save Student</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Student View Modal */}
       {selectedStudentView && (

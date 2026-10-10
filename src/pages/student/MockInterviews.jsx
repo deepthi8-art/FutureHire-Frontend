@@ -1,15 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { portalService } from '../../services/portalService';
 import {
-  Video,
   Calendar,
   Clock,
-  User,
-  CheckCircle,
   Star,
-  MessageSquare,
-  ExternalLink,
-  Sparkles
+  ExternalLink
 } from 'lucide-react';
 
 const MockInterviews = () => {
@@ -21,17 +17,17 @@ const MockInterviews = () => {
   const bookedUpcoming = mockInterviews.filter(m => m.status === 'Booked');
   const completedMocks = mockInterviews.filter(m => m.status === 'Completed');
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!selectedSlotToBook) return;
 
-    setMockInterviews(prev => prev.map(m => m.id === selectedSlotToBook.id ? {
-      ...m,
-      status: 'Booked',
-      meetingLink: `https://meet.google.com/futurehire-${Math.random().toString(36).substr(2, 6)}`
-    } : m));
-
-    showToast(`Mock Interview slot booked with ${selectedSlotToBook.mentorName}!`, 'success');
-    setSelectedSlotToBook(null);
+    try {
+      const booking = await portalService.bookMockSlot(selectedSlotToBook.id);
+      setMockInterviews(prev => [...prev.filter(slot => slot.id !== booking.id), booking]);
+      showToast(`Mock interview booked with ${booking.mentorName}.`, 'success');
+      setSelectedSlotToBook(null);
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Booking failed.', 'error');
+    }
   };
 
   return (
@@ -64,14 +60,18 @@ const MockInterviews = () => {
                 </div>
               </div>
 
-              <a
-                href={slot.meetingLink}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-primary btn-sm"
-              >
-                Join Video Meeting <ExternalLink size={14} />
-              </a>
+              {slot.meetingLink ? (
+                <a
+                  href={slot.meetingLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-primary btn-sm"
+                >
+                  Join Video Meeting <ExternalLink size={14} />
+                </a>
+              ) : (
+                <span className="badge badge-medium">Meeting details pending</span>
+              )}
             </div>
           ))}
         </div>

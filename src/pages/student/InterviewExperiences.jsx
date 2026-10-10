@@ -1,15 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { portalService } from '../../services/portalService';
 import {
-  MessageSquareQuote,
   Search,
   PlusCircle,
-  Building,
   Calendar,
-  CheckCircle2,
-  XCircle,
-  User,
-  Star,
   BookOpen
 } from 'lucide-react';
 
@@ -44,21 +39,21 @@ const InterviewExperiences = () => {
     return matchesSearch && matchesCompany;
   });
 
-  const handleShareSubmit = (e) => {
+  const handleShareSubmit = async (e) => {
     e.preventDefault();
     if (!newShare.content) {
       showToast('Please enter experience details.', 'error');
       return;
     }
 
-    const created = {
-      id: `EXP-${Date.now()}`,
-      ...newShare
-    };
-
-    setExperiences([created, ...experiences]);
-    setShowShareModal(false);
-    showToast('Interview experience published! Thank you for sharing.', 'success');
+    try {
+      const created = await portalService.shareExperience(newShare);
+      setExperiences(prev => [created, ...prev]);
+      setShowShareModal(false);
+      showToast('Interview experience published.', 'success');
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Could not publish experience.', 'error');
+    }
   };
 
   return (

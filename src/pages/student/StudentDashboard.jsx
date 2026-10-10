@@ -8,22 +8,31 @@ import {
   Video,
   Trophy,
   Calendar,
-  CheckCircle,
   Clock,
   ArrowRight,
-  TrendingUp,
-  Award,
   Sparkles,
   BookOpen
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
-import { progressChartData } from '../../data/mockData';
 
 const StudentDashboard = () => {
-  const { user, codingProblems, mockInterviews, notifications } = useAuth();
+  const { user, codingProblems, codingProgress, quizResults, mockInterviews } = useAuth();
 
-  const solvedCount = codingProblems.filter(p => p.solved).length;
+  const solvedCount = codingProgress?.solvedCount || 0;
   const upcomingMocks = mockInterviews.filter(m => m.status === 'Available' || m.status === 'Booked');
+  const completedMocks = mockInterviews.filter(m => m.status === 'Completed');
+  const quizAverage = quizResults.length
+    ? Math.round(quizResults.reduce((sum, result) => sum + result.percentage, 0) / quizResults.length)
+    : null;
+  const ratedMocks = completedMocks.filter(mock => mock.feedback?.rating != null);
+  const averageRating = ratedMocks.length
+    ? (ratedMocks.reduce((sum, mock) => sum + mock.feedback.rating, 0) / ratedMocks.length).toFixed(1)
+    : null;
+  const activityData = [
+    { name: 'Accepted solutions', count: solvedCount },
+    { name: 'Quiz results', count: quizResults.length },
+    { name: 'Completed mocks', count: completedMocks.length }
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -41,13 +50,13 @@ const StudentDashboard = () => {
       >
         <div style={{ position: 'relative', zIndex: 2, maxWidth: '700px' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(255,255,255,0.2)', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-full)', fontSize: '0.8rem', fontWeight: '700', marginBottom: '0.75rem' }}>
-            <Sparkles size={14} /> Placement Season 2026 Active
+            <Sparkles size={14} /> Student Portal
           </div>
           <h1 style={{ fontSize: '2rem', color: '#FFF', marginBottom: '0.5rem' }}>
             Welcome back, {user?.name || 'Student'}! 👋
           </h1>
           <p style={{ opacity: 0.9, fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-            You are currently <strong style={{ color: '#FDE047' }}>85% Placement Ready</strong>. Keep momentum going by solving 2 medium array problems today or booking a mock interview!
+            Your preparation activity and interview bookings are synced to your account.
           </p>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <Link to="/student/coding-practice" className="btn btn-secondary btn-sm" style={{ color: 'var(--primary-700)', fontWeight: '700' }}>
@@ -63,40 +72,32 @@ const StudentDashboard = () => {
       {/* Metrics Row */}
       <div className="grid-4">
         <StatCard
-          title="Coding Solved"
-          value={`${solvedCount} / ${codingProblems.length}`}
+          title="Accepted Solutions"
+          value={`${solvedCount} / ${codingProgress?.totalProblems ?? codingProblems.length}`}
           icon={Code}
-          trend="up"
-          trendValue="+12 this week"
           color="primary"
-          description="Target: 200 problems"
+          description="Automated code evaluation is not enabled"
         />
         <StatCard
           title="Aptitude Score"
-          value="88%"
+          value={quizAverage == null ? '—' : `${quizAverage}%`}
           icon={Brain}
-          trend="up"
-          trendValue="+5% accuracy"
           color="purple"
-          description="Average across 12 tests"
+          description={`Average across ${quizResults.length} submitted quizzes`}
         />
         <StatCard
           title="Mock Interviews"
-          value="4 Done"
+          value={`${completedMocks.length} Done`}
           icon={Video}
-          trend="up"
-          trendValue="4.8/5 Avg Rating"
           color="cyan"
-          description="Next: 10th Oct"
+          description={averageRating ? `${averageRating}/5 average mentor rating` : 'No rated interviews yet'}
         />
         <StatCard
           title="Readiness Score"
-          value="85%"
+          value="—"
           icon={Trophy}
-          trend="up"
-          trendValue="Tier 1 Qualified"
           color="emerald"
-          description="Based on solving speed"
+          description="Composite readiness scoring is not configured"
         />
       </div>
 
@@ -107,8 +108,8 @@ const StudentDashboard = () => {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <div>
-              <h3 style={{ fontSize: '1.1rem' }}>Preparation Progress Analytics</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Solved problems & aptitude scores over months</p>
+              <h3 style={{ fontSize: '1.1rem' }}>Recorded Preparation Activity</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Current saved results and bookings</p>
             </div>
             <Link to="/student/progress" className="btn btn-outline btn-sm">
               Full Analytics
@@ -117,19 +118,19 @@ const StudentDashboard = () => {
 
           <div style={{ height: '240px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={progressChartData}>
+              <AreaChart data={activityData}>
                 <defs>
                   <linearGradient id="colorCoding" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#20A69A" stopOpacity={0.4}/>
                     <stop offset="95%" stopColor="#20A69A" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
+                <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} />
                 <YAxis stroke="#94A3B8" fontSize={12} />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
                 />
-                <Area type="monotone" dataKey="codingSolved" stroke="#20A69A" strokeWidth={3} fillOpacity={1} fill="url(#colorCoding)" name="Solved Problems" />
+                <Area type="monotone" dataKey="count" stroke="#20A69A" strokeWidth={3} fillOpacity={1} fill="url(#colorCoding)" name="Saved records" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

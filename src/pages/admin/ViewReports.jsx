@@ -1,12 +1,7 @@
-import React from 'react';
-import { useAuth } from '../../context/AuthContext';
+import React, { useEffect, useState } from 'react';
+import { portalService } from '../../services/portalService';
 import {
-  BarChart3,
-  Download,
-  Users,
-  Trophy,
-  CheckCircle,
-  FileSpreadsheet
+  Download
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -15,20 +10,58 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
-  LineChart,
-  Line,
   AreaChart,
   Area
 } from 'recharts';
-import { progressChartData, departmentDistributionData } from '../../data/mockData';
-
 const ViewReports = () => {
-  const { showToast } = useAuth();
+  const [report, setReport] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isCurrent = true;
+    portalService.getAdminOverviewReports()
+      .then(data => {
+        if (isCurrent) setReport(data);
+      })
+      .finally(() => {
+        if (isCurrent) setIsLoading(false);
+      });
+    return () => { isCurrent = false; };
+  }, []);
 
   const handleExportCSV = () => {
-    showToast('Exporting Placement Analytics Report (CSV)...', 'success');
+    if (!report) return;
+    const rows = [
+      ['Metric', 'Value'],
+      ['Registered students', report.totalRegisteredStudents],
+      ['Coding problems', report.totalCodingProblems],
+      ['Coding submissions', report.totalCodingSubmissions],
+      ['Aptitude quizzes', report.totalAptitudeQuizzes],
+      ['Companies', report.totalCompanies],
+      ['Mock interview slots', report.totalMockSlots],
+      ...report.departmentDistribution.map(department => [
+        `Students in ${department.name}`,
+        department.students
+      ])
+    ];
+    const csv = rows.map(row => row
+      .map(value => `"${String(value ?? '').replace(/"/g, '""')}"`)
+      .join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'futurehire-placement-report.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   };
+
+  const number = value => isLoading ? '...' : Number(value || 0).toLocaleString();
+  const activityData = report ? [
+    { name: 'Students', value: report.totalRegisteredStudents },
+    { name: 'Coding submissions', value: report.totalCodingSubmissions },
+    { name: 'Quizzes', value: report.totalAptitudeQuizzes },
+    { name: 'Mock slots', value: report.totalMockSlots }
+  ] : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -42,35 +75,39 @@ const ViewReports = () => {
           </p>
         </div>
 
-        <button onClick={handleExportCSV} className="btn btn-primary">
+        <button onClick={handleExportCSV} disabled={!report} className="btn btn-primary">
           <Download size={18} /> Export Full Report (.CSV)
         </button>
       </div>
+
+      {!isLoading && !report && (
+        <div className="card" role="alert">Reports could not be loaded from the backend.</div>
+      )}
 
       {/* Analytics Summary */}
       <div className="grid-4">
         <div className="card">
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>TOTAL STUDENTS</div>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--purple-600)', margin: '0.2rem 0' }}>1,380</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--emerald-500)' }}>+14% vs last batch</div>
+          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--purple-600)', margin: '0.2rem 0' }}>{number(report?.totalRegisteredStudents)}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Registered student accounts</div>
         </div>
 
         <div className="card">
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>TOTAL CODING SUBMISSIONS</div>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--primary-600)', margin: '0.2rem 0' }}>42,500+</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>92% Pass Rate</div>
+          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--primary-600)', margin: '0.2rem 0' }}>{number(report?.totalCodingSubmissions)}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Saved submissions, not evaluated</div>
         </div>
 
         <div className="card">
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>APTITUDE TESTS TAKEN</div>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--cyan-600)', margin: '0.2rem 0' }}>18,200</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Avg 82% Score</div>
+          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--cyan-600)', margin: '0.2rem 0' }}>{number(report?.totalAptitudeQuizzes)}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Available quizzes</div>
         </div>
 
         <div className="card">
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>PLACEMENT SHORTLISTS</div>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--emerald-500)', margin: '0.2rem 0' }}>890</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--emerald-500)' }}>Active Candidates</div>
+          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--emerald-500)', margin: '0.2rem 0' }}>{number(report?.totalMockSlots)}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Interview slots</div>
         </div>
       </div>
 
@@ -79,14 +116,14 @@ const ViewReports = () => {
         
         {/* Graph 1 */}
         <div className="card">
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Batch Coding Velocity Trend</h3>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Portal Activity</h3>
           <div style={{ height: '260px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={progressChartData}>
-                <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
+              <AreaChart data={activityData}>
+                <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} />
                 <YAxis stroke="#94A3B8" fontSize={12} />
                 <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
-                <Area type="monotone" dataKey="codingSolved" stroke="#4F46E5" fill="rgba(79, 70, 229, 0.2)" strokeWidth={3} name="Submissions" />
+                <Area type="monotone" dataKey="value" stroke="#0F766E" fill="rgba(15, 118, 110, 0.2)" strokeWidth={3} name="Records" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -94,14 +131,14 @@ const ViewReports = () => {
 
         {/* Graph 2 */}
         <div className="card">
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Department Performance Comparison</h3>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Students by Department</h3>
           <div style={{ height: '260px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={departmentDistributionData}>
+              <BarChart data={report?.departmentDistribution || []}>
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} />
                 <YAxis stroke="#94A3B8" fontSize={12} />
                 <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
-                <Bar dataKey="students" fill="#7C3AED" radius={[6, 6, 0, 0]} name="Participating Students" />
+                <Bar dataKey="students" fill="#0F766E" radius={[6, 6, 0, 0]} name="Registered students" />
               </BarChart>
             </ResponsiveContainer>
           </div>

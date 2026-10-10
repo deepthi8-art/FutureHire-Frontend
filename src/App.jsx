@@ -1,36 +1,31 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 
-// Public Pages
-import Home from './pages/Home';
-import About from './pages/About';
-import Login from './pages/Login';
-import Register from './pages/Register';
-
-// Student Portal Pages
-import StudentDashboard from './pages/student/StudentDashboard';
-import CodingPractice from './pages/student/CodingPractice';
-import AptitudePractice from './pages/student/AptitudePractice';
-import CompanyInfo from './pages/student/CompanyInfo';
-import ResumeManagement from './pages/student/ResumeManagement';
-import InterviewExperiences from './pages/student/InterviewExperiences';
-import MockInterviews from './pages/student/MockInterviews';
-import ProgressTracker from './pages/student/ProgressTracker';
-import StudyResources from './pages/student/StudyResources';
-import Notifications from './pages/student/Notifications';
-
-// Admin Portal Pages
-import AdminDashboard from './pages/admin/AdminDashboard';
-import ManageUsers from './pages/admin/ManageUsers';
-import ManageQuestions from './pages/admin/ManageQuestions';
-import ManageCompanies from './pages/admin/ManageCompanies';
-import ManageResources from './pages/admin/ManageResources';
-import ViewReports from './pages/admin/ViewReports';
-import ManageMockInterviews from './pages/admin/ManageMockInterviews';
+const Home = lazy(() => import('./pages/Home'));
+const About = lazy(() => import('./pages/About'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
+const CodingPractice = lazy(() => import('./pages/student/CodingPractice'));
+const AptitudePractice = lazy(() => import('./pages/student/AptitudePractice'));
+const CompanyInfo = lazy(() => import('./pages/student/CompanyInfo'));
+const ResumeManagement = lazy(() => import('./pages/student/ResumeManagement'));
+const InterviewExperiences = lazy(() => import('./pages/student/InterviewExperiences'));
+const MockInterviews = lazy(() => import('./pages/student/MockInterviews'));
+const ProgressTracker = lazy(() => import('./pages/student/ProgressTracker'));
+const StudyResources = lazy(() => import('./pages/student/StudyResources'));
+const Notifications = lazy(() => import('./pages/student/Notifications'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const ManageUsers = lazy(() => import('./pages/admin/ManageUsers'));
+const ManageQuestions = lazy(() => import('./pages/admin/ManageQuestions'));
+const ManageCompanies = lazy(() => import('./pages/admin/ManageCompanies'));
+const ManageResources = lazy(() => import('./pages/admin/ManageResources'));
+const ViewReports = lazy(() => import('./pages/admin/ViewReports'));
+const ManageMockInterviews = lazy(() => import('./pages/admin/ManageMockInterviews'));
 
 // Dashboard Layout Wrapper
 const DashboardLayout = () => {
@@ -53,7 +48,8 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
+        <Suspense fallback={<div className="page-content" role="status">Loading...</div>}>
+          <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
@@ -101,7 +97,8 @@ function App() {
 
           {/* Fallback Wildcard Redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </Router>
     </AuthProvider>
   );

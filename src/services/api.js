@@ -29,9 +29,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear token on 401 unauthorized
       localStorage.removeItem('futurehire_token');
       localStorage.removeItem('futurehire_user');
+      window.dispatchEvent(new Event('futurehire:unauthorized'));
     }
     return Promise.reject(error);
   }

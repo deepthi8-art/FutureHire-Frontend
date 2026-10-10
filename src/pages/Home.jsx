@@ -2,8 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Code, Brain, FileText, Video, Building2,
-  ArrowRight, Target, Trophy, Users, Star,
-  CheckCircle2, Sparkles, BookOpen, TrendingUp
+  ArrowRight, Star, Sparkles, TrendingUp
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';

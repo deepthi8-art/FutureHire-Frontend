@@ -1,16 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { portalService } from '../../services/portalService';
 import confetti from 'canvas-confetti';
 import {
-  Brain,
   Clock,
-  CheckCircle,
   HelpCircle,
   ArrowRight,
-  ArrowLeft,
-  RotateCcw,
-  Check,
-  X
+  ArrowLeft
 } from 'lucide-react';
 
 const AptitudePractice = () => {
@@ -21,7 +17,46 @@ const AptitudePractice = () => {
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [scoreResult, setScoreResult] = useState(null);
+
+  const handleStartQuiz = async (quiz) => {
+    try {
+      const questions = await portalService.getQuizQuestions(quiz.id);
+      if (!questions?.length) throw new Error('This quiz has no questions yet.');
+      setActiveQuiz({ ...quiz, questions });
+      setCurrentQIndex(0);
+      setSelectedAnswers({});
+      setIsSubmitted(false);
+      setScoreResult(null);
+      setTimeLeft(quiz.durationMinutes * 60);
+      showToast(`Started "${quiz.title}". Good luck!`, 'info');
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Could not load this quiz.', 'error');
+    }
+  };
+
+  const handleOptionSelect = (qId, optionIdx) => {
+    if (isSubmitted) return;
+    setSelectedAnswers({ ...selectedAnswers, [qId]: optionIdx });
+  };
+
+  const handleSubmitQuiz = useCallback(async () => {
+    if (!activeQuiz || isSubmitted || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const result = await portalService.submitQuiz(activeQuiz.id, selectedAnswers);
+      const percentage = Number(result.percentage);
+      setScoreResult({ correct: result.score, total: result.totalQuestions, percentage });
+      setIsSubmitted(true);
+      if (percentage >= 70) confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+      showToast(`Quiz submitted. Score: ${result.score}/${result.totalQuestions} (${percentage}%).`, 'success');
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Quiz submission failed.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [activeQuiz, isSubmitted, isSubmitting, selectedAnswers, showToast]);
 
   useEffect(() => {
     let timer;
@@ -38,49 +73,7 @@ const AptitudePractice = () => {
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [activeQuiz, isSubmitted, timeLeft]);
-
-  const handleStartQuiz = (quiz) => {
-    setActiveQuiz(quiz);
-    setCurrentQIndex(0);
-    setSelectedAnswers({});
-    setIsSubmitted(false);
-    setScoreResult(null);
-    setTimeLeft(quiz.durationMinutes * 60);
-    showToast(`Started "${quiz.title}". Good luck!`, 'info');
-  };
-
-  const handleOptionSelect = (qId, optionIdx) => {
-    if (isSubmitted) return;
-    setSelectedAnswers({ ...selectedAnswers, [qId]: optionIdx });
-  };
-
-  const handleSubmitQuiz = () => {
-    if (!activeQuiz) return;
-    setIsSubmitted(true);
-
-    let correctCount = 0;
-    activeQuiz.questions.forEach((q) => {
-      if (selectedAnswers[q.id] === q.correctIndex) {
-        correctCount += 1;
-      }
-    });
-
-    const percentage = Math.round((correctCount / activeQuiz.questions.length) * 100);
-    setScoreResult({
-      correct: correctCount,
-      total: activeQuiz.questions.length,
-      percentage
-    });
-
-    if (percentage >= 70) {
-      try {
-        confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
-      } catch (e) {}
-    }
-
-    showToast(`Quiz Submitted! You scored ${correctCount}/${activeQuiz.questions.length} (${percentage}%)`, 'success');
-  };
+  }, [activeQuiz, isSubmitted, timeLeft, handleSubmitQuiz]);
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -202,7 +195,6 @@ const AptitudePractice = () => {
                 {activeQuiz.questions[currentQIndex].options.map((opt, optIdx) => {
                   const q = activeQuiz.questions[currentQIndex];
                   const isSelected = selectedAnswers[q.id] === optIdx;
-                  const isCorrect = q.correctIndex === optIdx;
 
                   let optBg = 'var(--bg-input)';
                   let border = '1px solid var(--border-color)';
@@ -213,20 +205,11 @@ const AptitudePractice = () => {
                     border = '1px solid var(--primary-600)';
                   }
 
-                  if (isSubmitted) {
-                    if (isCorrect) {
-                      optBg = 'rgba(16, 185, 129, 0.2)';
-                      border = '1px solid var(--emerald-500)';
-                    } else if (isSelected && !isCorrect) {
-                      optBg = 'rgba(244, 63, 94, 0.2)';
-                      border = '1px solid var(--rose-500)';
-                    }
-                  }
-
                   return (
                     <button
                       key={optIdx}
                       onClick={() => handleOptionSelect(q.id, optIdx)}
+                      disabled={isSubmitted}
                       style={{
                         padding: '0.85rem 1.1rem',
                         borderRadius: 'var(--radius-md)',
@@ -244,22 +227,10 @@ const AptitudePractice = () => {
                       }}
                     >
                       <span>{opt}</span>
-                      {isSubmitted && isCorrect && <Check size={18} style={{ color: 'var(--emerald-500)' }} />}
-                      {isSubmitted && isSelected && !isCorrect && <X size={18} style={{ color: 'var(--rose-500)' }} />}
                     </button>
                   );
                 })}
               </div>
-
-              {/* Explanation section if submitted */}
-              {isSubmitted && (
-                <div style={{ backgroundColor: 'var(--bg-input)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
-                  <strong style={{ color: 'var(--primary-600)' }}>Explanation:</strong>
-                  <p style={{ marginTop: '0.25rem', color: 'var(--text-body)' }}>
-                    {activeQuiz.questions[currentQIndex].explanation}
-                  </p>
-                </div>
-              )}
 
               {/* Next / Previous Controls */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -282,9 +253,10 @@ const AptitudePractice = () => {
                   ) : !isSubmitted ? (
                     <button
                       onClick={handleSubmitQuiz}
+                      disabled={isSubmitting}
                       className="btn btn-primary btn-sm"
                     >
-                      Submit Quiz Now
+                      {isSubmitting ? 'Submitting...' : 'Submit Quiz Now'}
                     </button>
                   ) : (
                     <button

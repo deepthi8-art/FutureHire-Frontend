@@ -1,13 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { portalService } from '../../services/portalService';
 import {
-  CalendarCheck,
   PlusCircle,
-  Clock,
-  User,
-  Video,
-  CheckCircle,
-  Edit,
   MessageSquare
 } from 'lucide-react';
 
@@ -32,7 +27,7 @@ const ManageMockInterviews = () => {
     areasToImprove: 'Practice time complexity edge case analysis.'
   });
 
-  const handleScheduleSubmit = (e) => {
+  const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     const newSlot = {
       id: `MI-${Date.now()}`,
@@ -45,26 +40,41 @@ const ManageMockInterviews = () => {
       meetingLink: ''
     };
 
-    setMockInterviews([newSlot, ...mockInterviews]);
-    showToast(`New Mock Interview slot scheduled!`, 'success');
-    setShowScheduleModal(false);
+    try {
+      const savedSlot = await portalService.createAdminMockSlot(newSlot);
+      setMockInterviews(prev => [savedSlot, ...prev]);
+      showToast('New mock interview slot scheduled.', 'success');
+      setShowScheduleModal(false);
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Could not schedule slot.', 'error');
+    }
   };
 
-  const handleSaveFeedback = (e) => {
+  const handleSaveFeedback = async (e) => {
     e.preventDefault();
     if (!activeFeedbackModal) return;
 
-    setMockInterviews(prev => prev.map(m => m.id === activeFeedbackModal.id ? {
-      ...m,
-      feedback: {
-        rating: Number(feedbackForm.rating),
-        strengths: feedbackForm.strengths,
-        areasToImprove: feedbackForm.areasToImprove
-      }
-    } : m));
+    if (!activeFeedbackModal.bookingId) {
+      showToast('Feedback can only be submitted for a booked interview.', 'error');
+      return;
+    }
 
-    showToast('Feedback submitted for student mock interview!', 'success');
-    setActiveFeedbackModal(null);
+    const feedback = {
+      rating: Number(feedbackForm.rating),
+      strengths: feedbackForm.strengths,
+      areasToImprove: feedbackForm.areasToImprove
+    };
+
+    try {
+      await portalService.submitAdminMockFeedback(activeFeedbackModal.bookingId, feedback);
+      setMockInterviews(prev => prev.map(slot => slot.id === activeFeedbackModal.id
+        ? { ...slot, status: 'Completed', feedback }
+        : slot));
+      showToast('Interview feedback submitted.', 'success');
+      setActiveFeedbackModal(null);
+    } catch (error) {
+      showToast(error.response?.data?.message || error.message || 'Could not submit feedback.', 'error');
+    }
   };
 
   return (
@@ -117,6 +127,7 @@ const ManageMockInterviews = () => {
                   </td>
                   <td style={{ padding: '0.95rem 1.25rem', textAlign: 'right' }}>
                     <button
+                      disabled={!slot.bookingId}
                       onClick={() => {
                         setActiveFeedbackModal(slot);
                         if (slot.feedback) {
