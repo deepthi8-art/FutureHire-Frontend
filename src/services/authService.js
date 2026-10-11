@@ -1,45 +1,83 @@
 
 import api from './api';
 
-const TOKEN_KEY = 'futurehire_token';
-const USER_KEY = 'futurehire_user';
+function getErrorMessage(error, fallback) {
+  if (error.code === 'ECONNABORTED') {
+    return 'The server took too long to respond. Please try again.';
+  }
+
+  if (!error.response) {
+    return 'Cannot reach the server. Please check your connection.';
+  }
+
+  return (
+    error.response.data?.message ||
+    error.response.data?.error ||
+    fallback
+  );
+}
+
+function normalizeAuthResponse(response) {
+  const data = response.data?.data || response.data;
+  const token = data?.token || data?.accessToken || data?.jwt;
+
+  if (!token) {
+    throw new Error(
+      'The server did not return an authentication token. Check the login API response.'
+    );
+  }
+
+  const rawUser = data.user || data.student || data;
+
+  const user = {
+    ...rawUser,
+    id: rawUser.id ?? data.userId,
+    name: rawUser.name ?? data.name,
+    email: rawUser.email ?? data.email,
+    role: String(rawUser.role ?? data.role ?? 'student').toLowerCase()
+  };
+
+  localStorage.setItem('futurehire_token', token);
+  localStorage.setItem('futurehire_user', JSON.stringify(user));
+
+  return { token, user };
+}
 
 export const authService = {
   async login(credentials) {
-    const response = await api.post('/auth/login', credentials);
-    const data = response.data;
+    try {
+      const response = await api.post('/auth/login', {
+        email: credentials.email,
+        password: credentials.password
+      });
 
-    const token = data.token || data.accessToken || data.jwt;
-    const user = data.user || data.student || data;
-
-    if (!token) {
-      throw new Error('Login failed: the server did not return an authentication token.');
+      return normalizeAuthResponse(response);
+    } catch (error) {
+      throw new Error(
+        getErrorMessage(error, 'Login failed. Check your credentials.')
+      );
     }
-
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-
-    return { user, token };
   },
 
-  async register(details) {
-    const response = await api.post('/auth/register', details);
-    const data = response.data;
-
-    const token = data.token || data.accessToken || data.jwt;
-    const user = data.user || data.student || data;
-
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
+  async register(studentData) {
+    try {
+      const response = await api.post('/auth/register', studentData);
+      return normalizeAuthResponse(response);
+    } catch (error) {
+      throw new Error(
+        getErrorMessage(error, 'Registration failed. Please check your details.')
+      );
     }
+  },
 
-    return { user, token };
+  logout() {
+    localStorage.removeItem('futurehire_token');
+    localStorage.removeItem('futurehire_user');
   },
 
   getCurrentUser() {
     try {
-      const value = localStorage.getItem(USER_KEY);
+      const value = localStorage.getItem('futurehire_user');
       return value ? JSON.parse(value) : null;
     } catch {
       return null;
@@ -47,16 +85,11 @@ export const authService = {
   },
 
   getToken() {
-    return localStorage.getItem(TOKEN_KEY);
-  },
-
-  logout() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    return localStorage.getItem('futurehire_token');
   },
 
   isAuthenticated() {
-    return !!this.getToken() && !!this.getCurrentUser();
+    return Boolean(this.getToken() && this.getCurrentUser());
   }
 };
 
