@@ -1,396 +1,234 @@
+
 import api from './api';
 
-const displayDifficulty = (difficulty) =>
-  difficulty ? difficulty.charAt(0) + difficulty.slice(1).toLowerCase() : '';
-
-const toMockSlot = (slot, status = slot.status) => ({
-  ...slot,
-  type: slot.interviewType,
-  time: slot.timeWindow,
-  status: status?.toLowerCase() === 'available' ? 'Available'
-    : status?.toLowerCase() === 'booked' ? 'Booked'
-      : status?.toLowerCase() === 'completed' ? 'Completed' : status
-});
-
-const toExperience = (experience) => ({
-  ...experience,
-  author: experience.student?.fullName || 'Student',
-  college: experience.student?.studentProfile?.collegeName || '',
-  company: experience.companyName,
-  role: experience.roleTitle,
-  date: experience.interviewDate
-});
-
-const toCompany = (company) => ({
-  ...company,
-  logo: company.logoUrl,
-  ctc: company.ctcRange,
-  eligibility: {
-    minCgpa: company.minCgpa,
-    tenthTwelveth: company.tenthTwelvethPct,
-    allowedBranches: company.allowedBranches?.split(',').map(branch => branch.trim()) || [],
-    maxBacklogs: company.maxBacklogs
-  },
-  skillsRequired: company.requiredSkills?.split(',').map(skill => skill.trim()) || [],
-  selectionProcess: parseJsonArray(company.selectionRoundsJson),
-  interviewQuestions: parseJsonArray(company.interviewQuestionsJson)
-});
-
-function parseJsonArray(value) {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    return [];
-  }
-}
+const unwrap = (response) =>
+  response?.data?.data ?? response?.data ?? null;
 
 export const portalService = {
-  // --- Student Coding ---
-  getCodingProblems: async (difficulty = '') => {
-    try {
-      const response = await api.get(`/student/coding/problems${difficulty ? `?difficulty=${difficulty}` : ''}`);
-      return response.data?.data?.map(problem => ({
-        ...problem,
-        difficulty: displayDifficulty(problem.difficulty),
-        constraints: problem.constraintsText,
-        solved: false,
-        starterCode: {
-          javascript: problem.starterCodeJs || '',
-          java: problem.starterCodeJava || '',
-          python: problem.starterCodePython || ''
-        }
-      }));
-    } catch (e) {
-      console.warn("Backend API endpoint fallback to local data", e.message);
-      return null;
-    }
+  // ---------------- Coding ----------------
+
+  async getCodingProblems(difficulty = '') {
+    const params = difficulty ? { difficulty } : {};
+    return unwrap(
+      await api.get('/student/coding/problems', { params })
+    );
   },
 
-  submitCodingSolution: async (problemId, sourceCode, language) => {
-    const response = await api.post('/student/coding/submissions', { problemId, sourceCode, language });
-    return response.data?.data;
+  async submitCodingSolution(problemId, sourceCode, language) {
+    return unwrap(
+      await api.post('/student/coding/submissions', {
+        problemId,
+        sourceCode,
+        language
+      })
+    );
   },
 
-  getCodingProgress: async () => {
-    const response = await api.get('/student/coding/progress');
-    return response.data?.data;
+  // ---------------- Aptitude quizzes ----------------
+
+  async getAptitudeQuizzes() {
+    const data = unwrap(
+      await api.get('/student/aptitude/quizzes')
+    );
+
+    return Array.isArray(data) ? data.map((quiz) => ({
+      ...quiz,
+      durationMinutes: quiz.durationMinutes || 15,
+      questions: Array.isArray(quiz.questions) ? quiz.questions : []
+    })) : [];
   },
 
-  // --- Student Aptitude ---
-  getAptitudeQuizzes: async () => {
-    try {
-      const response = await api.get('/student/aptitude/quizzes');
-      return response.data?.data;
-    } catch (e) {
-      return null;
-    }
-  },
+  async getQuizQuestions(quizId) {
+    const data = unwrap(
+      await api.get(`/student/aptitude/quizzes/${quizId}/questions`)
+    );
 
-  getQuizQuestions: async (quizId) => {
-    const response = await api.get(`/student/aptitude/quizzes/${quizId}/questions`);
-    return response.data?.data?.map(question => ({
+    const questions = Array.isArray(data)
+      ? data
+      : data?.questions || [];
+
+    return questions.map((question) => ({
+      ...question,
       id: question.id,
-      question: question.questionText,
-      options: question.options
+      questionText:
+        question.questionText ||
+        question.question ||
+        question.text ||
+        '',
+      question:
+        question.questionText ||
+        question.question ||
+        question.text ||
+        '',
+      options:
+        question.options ||
+        [
+          question.optionA,
+          question.optionB,
+          question.optionC,
+          question.optionD
+        ].filter(Boolean)
     }));
   },
 
-  submitQuiz: async (quizId, answersMap) => {
-    const response = await api.post(`/student/aptitude/quizzes/${quizId}/submit`, answersMap);
-    return response.data?.data;
+  async submitQuiz(quizOrPayload, answersMap) {
+    let quizId;
+    let answers;
+
+    if (
+      quizOrPayload &&
+      typeof quizOrPayload === 'object' &&
+      !Array.isArray(quizOrPayload)
+    ) {
+      quizId = quizOrPayload.quizId;
+      answers = quizOrPayload.answers;
+    } else {
+      quizId = quizOrPayload;
+      answers = answersMap;
+    }
+
+    if (quizId == null) {
+      throw new Error('A quiz ID is required to submit the quiz.');
+    }
+
+    const response = await api.post(
+      `/student/aptitude/quizzes/${quizId}/submit`,
+      answers
+    );
+
+    return unwrap(response);
   },
 
-  getQuizResults: async () => {
-    const response = await api.get('/student/aptitude/results');
-    return response.data?.data;
+  // ---------------- Progress ----------------
+
+  async getProgressOverview() {
+    return unwrap(
+      await api.get('/student/progress/overview')
+    ) || {};
   },
 
-  // --- Student Companies ---
-  getCompanies: async (search = '') => {
+  async getProgress() {
+    return this.getProgressOverview();
+  },
+
+  // ---------------- Companies ----------------
+
+  async getCompanies(search = '') {
+    const response = await api.get(
+      search
+        ? '/student/companies/search'
+        : '/student/companies',
+      search ? { params: { name: search } } : {}
+    );
+
+    return unwrap(response);
+  },
+
+  // ---------------- Resume ----------------
+
+  async uploadResume(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post(
+      '/student/resumes/upload',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+
+    return unwrap(response);
+  },
+
+  async getResumeDetails() {
     try {
-      const url = search ? `/student/companies/search?name=${encodeURIComponent(search)}` : '/student/companies';
-      const response = await api.get(url);
-      return response.data?.data?.map(toCompany);
-    } catch (e) {
-      return null;
+      return unwrap(await api.get('/student/resumes'));
+    } catch (error) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
     }
   },
 
-  // --- Resume ---
-  uploadResume: async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await api.post('/student/resumes/upload', formData);
-    return toCompany(response.data?.data);
-  },
+  async downloadResume() {
+    const response = await api.get(
+      '/student/resumes/download',
+      { responseType: 'blob' }
+    );
 
-  deleteResume: async () => {
-    const response = await api.delete('/student/resumes');
-    return response.data?.success;
-  },
-
-  downloadResume: async () => {
-    const response = await api.get('/student/resumes/download', { responseType: 'blob' });
     return response.data;
   },
 
-  getResumeDetails: async () => {
-    try {
-      const response = await api.get('/student/resumes');
-      return response.data?.data;
-    } catch (e) {
-      // 404 means no resume uploaded yet — not an error
-      if (e?.response?.status === 404) return null;
-      console.warn('Resume fetch failed', e.message);
-      return null;
-    }
+  async deleteResume() {
+    return unwrap(await api.delete('/student/resumes'));
   },
 
-  // --- Interview Experiences ---
-  getInterviewExperiences: async () => {
-    try {
-      const response = await api.get('/student/interviews/experiences');
-      return response.data?.data?.map(toExperience);
-    } catch (e) {
-      return null;
-    }
-  },
+  // ---------------- Interview experiences ----------------
 
-  shareExperience: async (expData) => {
-    const response = await api.post('/student/interviews/experiences', {
-      companyName: expData.company,
-      roleTitle: expData.role,
-      verdict: expData.verdict,
-      packageOffered: expData.packageOffered,
-      interviewDate: expData.date,
-      difficulty: expData.difficulty,
-      content: expData.content,
-      tips: expData.tips
-    });
-    return toExperience(response.data?.data);
-  },
-
-  // --- Mock Interviews ---
-  getAvailableMockSlots: async () => {
-    try {
-      const response = await api.get('/student/mock-interviews/slots');
-      return response.data?.data?.map(slot => toMockSlot(slot));
-    } catch (e) {
-      return null;
-    }
-  },
-
-  bookMockSlot: async (slotId) => {
-    const response = await api.post(`/student/mock-interviews/book/${slotId}`);
-    const booking = response.data?.data;
-    return toMockSlot(booking.slot, 'Booked');
-  },
-
-  getMyMockBookings: async () => {
-    try {
-      const response = await api.get('/student/mock-interviews/my-bookings');
-      return response.data?.data?.map(booking => ({
-        ...toMockSlot(booking.slot, booking.slot?.status === 'COMPLETED' ? 'Completed' : 'Booked'),
-        bookingId: booking.id,
-        feedback: booking.feedbackRating == null ? null : {
-          rating: booking.feedbackRating,
-          strengths: booking.feedbackStrengths,
-          areasToImprove: booking.feedbackAreasToImprove
-        }
-      }));
-    } catch (e) {
-      return null;
-    }
-  },
-
-  // --- Study Resources ---
-  getStudyResources: async () => {
-    try {
-      const response = await api.get('/student/resources');
-      return response.data?.data?.map(resource => ({
-        ...resource,
-        size: resource.fileSize,
-        downloadUrl: resource.fileUrl
-      }));
-    } catch (e) {
-      return null;
-    }
-  },
-
-  // --- Notifications ---
-  getNotifications: async () => {
-    try {
-      const response = await api.get('/student/notifications');
-      return response.data?.data?.map(notification => ({
-        ...notification,
-        read: notification.read ?? notification.isRead ?? false,
-        time: notification.timeAgo
-      }));
-    } catch (e) {
-      return null;
-    }
-  },
-
-  markNotificationRead: async (notifId) => {
-    const response = await api.put(`/student/notifications/${notifId}/read`);
-    return response.data?.data;
-  },
-
-  markAllNotificationsRead: async () => {
-    const response = await api.put('/student/notifications/read-all');
-    return response.data?.data;
-  },
-
-  // --- Admin APIs ---
-  getAdminUsers: async () => {
-    try {
-      const response = await api.get('/admin/users');
-      const raw = response.data?.data;
-      if (Array.isArray(raw)) {
-        return raw.map(u => ({
-          id: u.id ? `STD-${u.id}` : '',
-          rawId: u.id,
-          name: u.fullName || u.name || 'Student User',
-          email: u.email || '',
-          department: u.department || '',
-          year: u.year || u.yearOfStudy || '',
-          cgpa: u.cgpa || '',
-          status: u.status || (u.enabled !== false ? 'Active' : 'Inactive'),
-          role: typeof u.role === 'object' ? u.role.name : (u.role || 'ROLE_STUDENT')
-        }));
-      }
-      return raw;
-    } catch (e) {
-      return null;
-    }
-  },
-
-  deleteAdminUser: async (rawId) => {
-    const response = await api.delete(`/admin/users/${rawId}`);
-    return response.data?.success;
-  },
-
-  createAdminCompany: async (company) => {
-    const response = await api.post('/admin/companies', {
-      name: company.name,
-      logoUrl: company.logo,
-      tier: company.tier,
-      ctcRange: company.ctc,
-      location: company.location,
-      description: company.description,
-      minCgpa: company.eligibility?.minCgpa,
-      tenthTwelvethPct: company.eligibility?.tenthTwelveth,
-      allowedBranches: company.eligibility?.allowedBranches?.join(', '),
-      maxBacklogs: company.eligibility?.maxBacklogs,
-      requiredSkills: company.skillsRequired?.join(', '),
-      selectionRoundsJson: JSON.stringify(company.selectionProcess || []),
-      interviewQuestionsJson: JSON.stringify(company.interviewQuestions || [])
-    });
-    return toCompany(response.data?.data);
-  },
-
-  deleteAdminCompany: async (id) => {
-    const response = await api.delete(`/admin/companies/${id}`);
-    return response.data?.success;
-  },
-
-  createAdminCodingProblem: async (problem) => {
-    const response = await api.post('/admin/questions/coding', {
-      title: problem.title,
-      category: problem.category,
-      difficulty: problem.difficulty.toUpperCase(),
-      acceptanceRate: problem.acceptanceRate,
-      description: problem.description,
-      sampleInput: problem.sampleInput,
-      sampleOutput: problem.sampleOutput,
-      constraintsText: problem.constraints,
-      starterCodeJs: problem.starterCode?.javascript,
-      starterCodeJava: problem.starterCode?.java,
-      starterCodePython: problem.starterCode?.python
-    });
-    const created = response.data?.data;
-    return {
-      ...created,
-      difficulty: displayDifficulty(created.difficulty),
-      constraints: created.constraintsText,
-      solved: false,
-      starterCode: {
-        javascript: created.starterCodeJs || '',
-        java: created.starterCodeJava || '',
-        python: created.starterCodePython || ''
-      }
-    };
-  },
-
-  deleteAdminCodingProblem: async (id) => {
-    const response = await api.delete(`/admin/questions/coding/${id}`);
-    return response.data?.success;
-  },
-
-  createAdminResource: async (resource) => {
-    const response = await api.post('/admin/resources', {
-      title: resource.title,
-      category: resource.category,
-      format: resource.format,
-      fileSize: resource.size,
-      author: resource.author,
-      fileUrl: resource.fileUrl
-    });
-    const created = response.data?.data;
-    return { ...created, size: created.fileSize, downloadUrl: created.fileUrl };
-  },
-
-  deleteAdminResource: async (id) => {
-    const response = await api.delete(`/admin/resources/${id}`);
-    return response.data?.success;
-  },
-
-  getAdminMockInterviews: async () => {
-    const [slotsResponse, bookingsResponse] = await Promise.all([
-      api.get('/admin/mock-interviews/slots'),
-      api.get('/admin/mock-interviews/bookings')
-    ]);
-    const bookingsBySlotId = new Map(
-      (bookingsResponse.data?.data || []).map(booking => [booking.slot?.id, booking])
+  async getInterviewExperiences() {
+    return unwrap(
+      await api.get('/student/interviews/experiences')
     );
-    return (slotsResponse.data?.data || []).map(slot => {
-      const booking = bookingsBySlotId.get(slot.id);
-      return {
-        ...toMockSlot(slot),
-        bookingId: booking?.id,
-        feedback: booking?.feedbackRating == null ? null : {
-          rating: booking.feedbackRating,
-          strengths: booking.feedbackStrengths,
-          areasToImprove: booking.feedbackAreasToImprove
-        }
-      };
-    });
   },
 
-  createAdminMockSlot: async (slot) => {
-    const response = await api.post('/admin/mock-interviews/slots', {
-      mentorName: slot.mentorName,
-      mentorTitle: slot.mentorTitle,
-      date: slot.date,
-      timeWindow: slot.time,
-      interviewType: slot.type
-    });
-    return toMockSlot(response.data?.data);
+  async shareExperience(experience) {
+    return unwrap(
+      await api.post(
+        '/student/interviews/experiences',
+        experience
+      )
+    );
   },
 
-  submitAdminMockFeedback: async (bookingId, feedback) => {
-    const response = await api.put(`/admin/mock-interviews/bookings/${bookingId}/feedback`, feedback);
-    return response.data?.data;
+  // ---------------- Mock interviews ----------------
+
+  async getAvailableMockSlots() {
+    return unwrap(
+      await api.get('/student/mock-interviews/slots')
+    );
   },
 
-  getAdminOverviewReports: async () => {
-    try {
-      const response = await api.get('/admin/reports/overview');
-      return response.data?.data;
-    } catch (e) {
-      return null;
-    }
+  async bookMockSlot(slotId) {
+    return unwrap(
+      await api.post(
+        `/student/mock-interviews/book/${slotId}`
+      )
+    );
+  },
+
+  // ---------------- Study resources ----------------
+
+  async getStudyResources() {
+    return unwrap(
+      await api.get('/student/resources')
+    );
+  },
+
+  // ---------------- Notifications ----------------
+
+  async getNotifications() {
+    return unwrap(
+      await api.get('/student/notifications')
+    );
+  },
+
+  async markNotificationRead(notificationId) {
+    return unwrap(
+      await api.put(
+        `/student/notifications/${notificationId}/read`
+      )
+    );
+  },
+
+  // ---------------- Admin ----------------
+
+  async getAdminUsers() {
+    return unwrap(await api.get('/admin/users'));
   }
 };
+
+export default portalService;
