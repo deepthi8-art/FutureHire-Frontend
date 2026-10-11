@@ -1,75 +1,63 @@
+
 import api from './api';
 
-const saveSession = (apiResult) => {
-  if (!apiResult?.token) {
-    throw new Error('The server returned an invalid authentication response.');
-  }
-
-  const user = {
-    id: apiResult.userId,
-    name: apiResult.name,
-    email: apiResult.email,
-    role: apiResult.role?.toLowerCase()?.includes('admin') ? 'admin' : 'student'
-  };
-
-  localStorage.setItem('futurehire_token', apiResult.token);
-  localStorage.setItem('futurehire_user', JSON.stringify(user));
-  return { token: apiResult.token, user };
-};
-
-const getErrorMessage = (error, fallback) =>
-  error?.response?.data?.message || error?.message || fallback;
+const TOKEN_KEY = 'futurehire_token';
+const USER_KEY = 'futurehire_user';
 
 export const authService = {
-  login: async (credentials) => {
-    try {
-      const response = await api.post('/auth/login', credentials);
-      const apiResult = response.data?.data || response.data;
-      return saveSession(apiResult);
-    } catch (err) {
-      throw new Error(getErrorMessage(err, 'Login failed. Please try again.'));
+  async login(credentials) {
+    const response = await api.post('/auth/login', credentials);
+    const data = response.data;
+
+    const token = data.token || data.accessToken || data.jwt;
+    const user = data.user || data.student || data;
+
+    if (!token) {
+      throw new Error('Login failed: the server did not return an authentication token.');
     }
+
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+    return { user, token };
   },
 
-  register: async (studentData) => {
-    try {
-      const response = await api.post('/auth/register', {
-        fullName: studentData.fullName,
-        email: studentData.email,
-        password: studentData.password,
-        collegeName: studentData.college,
-        department: studentData.department,
-        yearOfStudy: studentData.yearOfStudy,
-        phone: studentData.phone
-      });
-      const apiResult = response.data?.data || response.data;
-      return saveSession(apiResult);
-    } catch (err) {
-      throw new Error(getErrorMessage(err, 'Registration failed. Please try again.'));
+  async register(details) {
+    const response = await api.post('/auth/register', details);
+    const data = response.data;
+
+    const token = data.token || data.accessToken || data.jwt;
+    const user = data.user || data.student || data;
+
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
     }
+
+    return { user, token };
   },
 
-  logout: () => {
-    localStorage.removeItem('futurehire_token');
-    localStorage.removeItem('futurehire_user');
-  },
-
-  getCurrentUser: () => {
-    if (!localStorage.getItem('futurehire_token')) {
-      localStorage.removeItem('futurehire_user');
+  getCurrentUser() {
+    try {
+      const value = localStorage.getItem(USER_KEY);
+      return value ? JSON.parse(value) : null;
+    } catch {
       return null;
     }
+  },
 
-    const userStr = localStorage.getItem('futurehire_user');
-    if (userStr) {
-      try {
-        return JSON.parse(userStr);
-      } catch (e) {
-        localStorage.removeItem('futurehire_token');
-        localStorage.removeItem('futurehire_user');
-        return null;
-      }
-    }
-    return null;
+  getToken() {
+    return localStorage.getItem(TOKEN_KEY);
+  },
+
+  logout() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  },
+
+  isAuthenticated() {
+    return !!this.getToken() && !!this.getCurrentUser();
   }
 };
+
+export default authService;
