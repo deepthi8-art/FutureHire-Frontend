@@ -1,160 +1,122 @@
-import React from 'react';
-import { useAuth } from '../../context/AuthContext';
-import {
-  CheckCircle,
-  Clock
-} from 'lucide-react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  LineChart,
-  Line
-} from 'recharts';
-const ProgressTracker = () => {
-  const { codingProblems, codingProgress, quizResults, mockInterviews, resumeData } = useAuth();
 
-  const solvedCount = codingProgress?.solvedCount || 0;
-  const totalProblems = codingProgress?.totalProblems ?? codingProblems.length;
-  const averageQuizScore = quizResults.length
-    ? Math.round(quizResults.reduce((sum, result) => sum + result.percentage, 0) / quizResults.length)
-    : null;
-  const completedMocks = mockInterviews.filter(mock => mock.status === 'Completed');
-  const ratedMocks = completedMocks.filter(mock => mock.feedback?.rating != null);
-  const averageRating = ratedMocks.length
-    ? (ratedMocks.reduce((sum, mock) => sum + mock.feedback.rating, 0) / ratedMocks.length).toFixed(1)
-    : null;
-  const activityData = [
-    { name: 'Accepted solutions', value: solvedCount },
-    { name: 'Quiz results', value: quizResults.length },
-    { name: 'Completed mocks', value: completedMocks.length }
-  ];
-  const quizScoreData = quizResults.map((result, index) => ({
-    name: result.quiz?.title || `Quiz ${index + 1}`,
-    percentage: result.percentage
-  }));
+import React, { useEffect, useState } from 'react';
+import { Activity, Award, BookOpen, RefreshCw, TrendingUp } from 'lucide-react';
+import { portalService } from '../../services/portalService';
 
-  const checklistItems = [
-    { id: 1, text: 'Upload a resume', done: !!resumeData },
-    { id: 2, text: 'Submit an aptitude quiz', done: quizResults.length > 0 },
-    { id: 3, text: 'Book a mock interview', done: mockInterviews.some(mock => ['Booked', 'Completed'].includes(mock.status)) },
-    { id: 4, text: 'Complete a rated mock interview', done: ratedMocks.length > 0 },
-    { id: 5, text: 'Solve 100+ coding problems', done: solvedCount >= 100 }
-  ];
+export default function ProgressTracker() {
+  const [progress, setProgress] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadProgress = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const data = await portalService.getProgress();
+      setProgress(data);
+    } catch (err) {
+      setError(err.message || 'Unable to load your progress.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProgress();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="page-container">
+        <p>Loading your progress...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="page-container">
+        <h1>Progress Tracker</h1>
+        <p role="alert">{error}</p>
+        <button type="button" onClick={loadProgress}>
+          <RefreshCw size={16} /> Retry
+        </button>
+      </div>
+    );
+  }
+
+  const quizAttempts = progress?.quizAttempts ?? progress?.totalQuizAttempts ?? 0;
+  const averageScore = progress?.averageScore ?? 0;
+  const completedInterviews =
+    progress?.completedInterviews ?? progress?.interviewsCompleted ?? 0;
+  const resumeAnalyses =
+    progress?.resumeAnalyses ?? progress?.totalResumeAnalyses ?? 0;
+  const activities = progress?.activities ?? progress?.recentActivities ?? [];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-      
-      {/* Header */}
-      <div>
-        <h1 style={{ fontSize: '1.85rem' }}>Placement Readiness & Progress Tracker</h1>
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-          Progress based on saved activity and server-returned results
-        </p>
+    <div className="page-container">
+      <div className="page-header">
+        <h1>Progress Tracker</h1>
+        <p>Review your learning activity and interview preparation progress.</p>
+        <button type="button" onClick={loadProgress}>
+          <RefreshCw size={16} /> Refresh
+        </button>
       </div>
 
-      {/* Progress Metric Cards */}
-      <div className="grid-4">
-        <div className="card">
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>OVERALL READINESS</div>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--primary-600)', margin: '0.2rem 0' }}>—</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Scoring not configured</div>
-        </div>
+      <div className="stats-grid">
+        <article className="card">
+          <BookOpen size={24} />
+          <h2>Quiz Attempts</h2>
+          <p className="stat-value">{quizAttempts}</p>
+        </article>
 
-        <div className="card">
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>CODING STATUS</div>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--purple-600)', margin: '0.2rem 0' }}>
-            {solvedCount} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>/ {totalProblems}</span>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Accepted solutions</div>
-        </div>
+        <article className="card">
+          <Award size={24} />
+          <h2>Average Quiz Score</h2>
+          <p className="stat-value">{Number(averageScore).toFixed(1)}%</p>
+        </article>
 
-        <div className="card">
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>AVG APTITUDE SCORE</div>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--cyan-600)', margin: '0.2rem 0' }}>{averageQuizScore == null ? '—' : `${averageQuizScore}%`}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Average across {quizResults.length} results</div>
-        </div>
+        <article className="card">
+          <Activity size={24} />
+          <h2>Interviews Completed</h2>
+          <p className="stat-value">{completedInterviews}</p>
+        </article>
 
-        <div className="card">
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>MOCK RATING</div>
-          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--amber-500)', margin: '0.2rem 0' }}>{averageRating ? `${averageRating} / 5` : '—'}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Based on {ratedMocks.length} mentor ratings</div>
-        </div>
+        <article className="card">
+          <TrendingUp size={24} />
+          <h2>Resume Analyses</h2>
+          <p className="stat-value">{resumeAnalyses}</p>
+        </article>
       </div>
 
-      {/* Recharts Bar & Line Charts */}
-      <div className="grid-2">
-        
-        {/* Chart 1: Saved activity */}
-        <div className="card">
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Recorded Preparation Activity</h3>
-          <div style={{ height: '260px', width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activityData}>
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} />
-                <YAxis stroke="#94A3B8" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
-                <Bar dataKey="value" fill="#0F766E" radius={[6, 6, 0, 0]} name="Records" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      <section className="card">
+        <h2>Recent Activity</h2>
 
-        {/* Chart 2: Persisted quiz scores */}
-        <div className="card">
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Submitted Quiz Scores</h3>
-          <div style={{ height: '260px', width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={quizScoreData}>
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} />
-                <YAxis stroke="#94A3B8" fontSize={12} domain={[0, 100]} />
-                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
-                <Line type="monotone" dataKey="percentage" stroke="#10B981" strokeWidth={3} dot={{ r: 5 }} name="Score %" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Milestone Checklist */}
-      <div className="card">
-        <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem' }}>Placement Preparation Milestone Checklist</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {checklistItems.map(item => (
-            <div
-              key={item.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                padding: '0.75rem 1rem',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: item.done ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-input)',
-                border: `1px solid ${item.done ? 'var(--emerald-500)' : 'var(--border-color)'}`
-              }}
-            >
-              {item.done ? (
-                <CheckCircle size={20} style={{ color: 'var(--emerald-500)' }} />
-              ) : (
-                <Clock size={20} style={{ color: 'var(--amber-500)' }} />
-              )}
-              <span style={{ fontWeight: item.done ? '700' : '500', fontSize: '0.9rem', textDecoration: item.done ? 'none' : 'none' }}>
-                {item.text}
-              </span>
-              <span style={{ marginLeft: 'auto', fontSize: '0.75rem', fontWeight: '700', color: item.done ? 'var(--emerald-500)' : 'var(--amber-500)' }}>
-                {item.done ? 'COMPLETED' : 'IN PROGRESS'}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
+        {activities.length === 0 ? (
+          <p>No activity recorded yet. Complete a quiz or practice interview to get started.</p>
+        ) : (
+          <ul className="activity-list">
+            {activities.map((activity, index) => (
+              <li key={activity.id ?? `${activity.type}-${index}`}>
+                <strong>
+                  {activity.title || activity.type || 'Learning activity'}
+                </strong>
+                <p>
+                  {activity.description ||
+                    activity.message ||
+                    'Activity recorded'}
+                </p>
+                {activity.date && (
+                  <time>
+                    {new Date(activity.date).toLocaleDateString()}
+                  </time>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
-};
-
-export default ProgressTracker;
+}
