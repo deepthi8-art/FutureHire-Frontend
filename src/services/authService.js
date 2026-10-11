@@ -1,4 +1,4 @@
-
+```javascript
 import api from './api';
 
 function getErrorMessage(error, fallback) {
@@ -45,14 +45,25 @@ function normalizeAuthResponse(response) {
 
 export const authService = {
   async login(credentials) {
+    console.log('AUTH SERVICE: login started');
+
     try {
+      console.log('AUTH SERVICE: sending POST request');
+
       const response = await api.post('/auth/login', {
         email: credentials.email,
         password: credentials.password
       });
 
+      console.log(
+        'AUTH SERVICE: response received',
+        response.status
+      );
+
       return normalizeAuthResponse(response);
     } catch (error) {
+      console.error('AUTH SERVICE: login failed', error);
+
       throw new Error(
         getErrorMessage(error, 'Login failed. Check your credentials.')
       );
@@ -94,3 +105,4 @@ export const authService = {
 };
 
 export default authService;
+```
