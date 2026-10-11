@@ -100,19 +100,26 @@ export const portalService = {
   },
 
   // ---------------- Progress ----------------
-
-  async getProgressOverview() {
-    return unwrap(
-      await api.get('/student/progress/overview')
-    ) || {};
-  },
-
-  async getProgress() {
-    return this.getProgressOverview();
-  },
-async getCodingProgress() {
-  return this.getProgressOverview();
+async getProgressOverview() {
+return unwrap(
+await api.get('/student/progress/overview')
+) || {};
 },
+
+async getProgress() {
+return this.getProgressOverview();
+},
+
+async getCodingProgress() {
+return this.getProgressOverview();
+},
+
+async getQuizResults() {
+return unwrap(
+await api.get('/student/aptitude/results')
+) || [];
+},
+  
   // ---------------- Companies ----------------
 
   async getCompanies(search = '') {
