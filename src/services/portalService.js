@@ -9,6 +9,7 @@ export const portalService = {
 
   async getCodingProblems(difficulty = '') {
     const params = difficulty ? { difficulty } : {};
+
     return unwrap(
       await api.get('/student/coding/problems', { params })
     );
@@ -31,16 +32,22 @@ export const portalService = {
       await api.get('/student/aptitude/quizzes')
     );
 
-    return Array.isArray(data) ? data.map((quiz) => ({
-      ...quiz,
-      durationMinutes: quiz.durationMinutes || 15,
-      questions: Array.isArray(quiz.questions) ? quiz.questions : []
-    })) : [];
+    return Array.isArray(data)
+      ? data.map((quiz) => ({
+          ...quiz,
+          durationMinutes: quiz.durationMinutes || 15,
+          questions: Array.isArray(quiz.questions)
+            ? quiz.questions
+            : []
+        }))
+      : [];
   },
 
   async getQuizQuestions(quizId) {
     const data = unwrap(
-      await api.get(`/student/aptitude/quizzes/${quizId}/questions`)
+      await api.get(
+        `/student/aptitude/quizzes/${quizId}/questions`
+      )
     );
 
     const questions = Array.isArray(data)
@@ -100,26 +107,31 @@ export const portalService = {
   },
 
   // ---------------- Progress ----------------
-async getProgressOverview() {
-return unwrap(
-await api.get('/student/progress/overview')
-) || {};
-},
 
-async getProgress() {
-return this.getProgressOverview();
-},
+  async getProgressOverview() {
+    return (
+      unwrap(
+        await api.get('/student/progress/overview')
+      ) || {}
+    );
+  },
 
-async getCodingProgress() {
-return this.getProgressOverview();
-},
+  async getProgress() {
+    return this.getProgressOverview();
+  },
 
-async getQuizResults() {
-return unwrap(
-await api.get('/student/aptitude/results')
-) || [];
-},
-  
+  async getCodingProgress() {
+    return this.getProgressOverview();
+  },
+
+  async getQuizResults() {
+    return (
+      unwrap(
+        await api.get('/student/aptitude/results')
+      ) || []
+    );
+  },
+
   // ---------------- Companies ----------------
 
   async getCompanies(search = '') {
@@ -159,6 +171,7 @@ await api.get('/student/aptitude/results')
       if (error.response?.status === 404) {
         return null;
       }
+
       throw error;
     }
   },
@@ -173,7 +186,9 @@ await api.get('/student/aptitude/results')
   },
 
   async deleteResume() {
-    return unwrap(await api.delete('/student/resumes'));
+    return unwrap(
+      await api.delete('/student/resumes')
+    );
   },
 
   // ---------------- Interview experiences ----------------
@@ -194,26 +209,26 @@ await api.get('/student/aptitude/results')
   },
 
   // ---------------- Mock interviews ----------------
-async getAvailableMockSlots() {
-return unwrap(
-await api.get('/student/mock-interviews/slots')
-);
-},
 
-async getMyMockBookings() {
-return unwrap(
-await api.get('/student/mock-interviews/bookings')
-);
-},
+  async getAvailableMockSlots() {
+    return unwrap(
+      await api.get('/student/mock-interviews/slots')
+    );
+  },
 
-async bookMockSlot(slotId) {
-return unwrap(
-await api.post(
-/student/mock-interviews/book/${slotId}
-)
-);
-},
-  
+  async getMyMockBookings() {
+    return unwrap(
+      await api.get('/student/mock-interviews/bookings')
+    );
+  },
+
+  async bookMockSlot(slotId) {
+    return unwrap(
+      await api.post(
+        `/student/mock-interviews/book/${slotId}`
+      )
+    );
+  },
 
   // ---------------- Study resources ----------------
 
@@ -242,7 +257,9 @@ await api.post(
   // ---------------- Admin ----------------
 
   async getAdminUsers() {
-    return unwrap(await api.get('/admin/users'));
+    return unwrap(
+      await api.get('/admin/users')
+    );
   }
 };
 
