@@ -110,7 +110,9 @@ export const portalService = {
   async getProgress() {
     return this.getProgressOverview();
   },
-
+async getCodingProgress() {
+  return this.getProgressOverview();
+},
   // ---------------- Companies ----------------
 
   async getCompanies(search = '') {
