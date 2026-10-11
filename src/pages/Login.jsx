@@ -27,6 +27,7 @@ const Login = () => {
   const [forgotEmail, setForgotEmail] = useState('');
 
   const handleSubmit = async (e) => {
+    console.log('LOGIN: form handler started');
     e.preventDefault();
     if (!email || !password) {
       showToast('Please enter both email and password.', 'error');
@@ -34,6 +35,7 @@ const Login = () => {
     }
 
     setLoading(true);
+    console.log('LOGIN: calling AuthContext login');
     try {
       const loggedUser = await login({ email, password, role });
       if (loggedUser.role === 'admin') {
