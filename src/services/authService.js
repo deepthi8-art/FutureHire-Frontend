@@ -1,4 +1,4 @@
-```javascript
+
 import api from './api';
 
 function getErrorMessage(error, fallback) {
@@ -105,4 +105,3 @@ export const authService = {
 };
 
 export default authService;
-```
