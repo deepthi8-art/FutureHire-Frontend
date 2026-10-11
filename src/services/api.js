@@ -1,38 +1,44 @@
+
 import axios from 'axios';
 
-// API Base URL from environment or default Spring Boot backend URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
-
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://futurehire-backend.onrender.com/api'
+).replace(/\/+$/, '');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 45000,
   headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 10000,
+    'Content-Type': 'application/json'
+  }
 });
 
-// Request Interceptor: Attach JWT Bearer Token if available
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('futurehire_token');
-    if (token) {
+
+    if (token && !token.startsWith('mock-jwt-token-')) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Global Error Handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
+    if (
+      error.response?.status === 401 &&
+      !String(error.config?.url || '').includes('/auth/')
+    ) {
       localStorage.removeItem('futurehire_token');
       localStorage.removeItem('futurehire_user');
-      window.dispatchEvent(new Event('futurehire:unauthorized'));
     }
+
     return Promise.reject(error);
   }
 );
