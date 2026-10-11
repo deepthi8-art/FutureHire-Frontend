@@ -194,20 +194,26 @@ await api.get('/student/aptitude/results')
   },
 
   // ---------------- Mock interviews ----------------
+async getAvailableMockSlots() {
+return unwrap(
+await api.get('/student/mock-interviews/slots')
+);
+},
 
-  async getAvailableMockSlots() {
-    return unwrap(
-      await api.get('/student/mock-interviews/slots')
-    );
-  },
+async getMyMockBookings() {
+return unwrap(
+await api.get('/student/mock-interviews/bookings')
+);
+},
 
-  async bookMockSlot(slotId) {
-    return unwrap(
-      await api.post(
-        `/student/mock-interviews/book/${slotId}`
-      )
-    );
-  },
+async bookMockSlot(slotId) {
+return unwrap(
+await api.post(
+/student/mock-interviews/book/${slotId}
+)
+);
+},
+  
 
   // ---------------- Study resources ----------------
 
