@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
+  BookOpen,
   Search,
-  Download
+  Download,
+  FileText,
+  Tag,
+  CheckCircle,
+  ExternalLink
 } from 'lucide-react';
 
 const StudyResources = () => {
@@ -22,8 +27,11 @@ const StudyResources = () => {
     'HR Interview'
   ];
 
-  const filteredResources = resources.filter(res => {
-    const matchesSearch = res.title.toLowerCase().includes(searchTerm.toLowerCase()) || res.category.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredResources = (resources || []).filter(res => {
+    const title = (res.title || '').toLowerCase();
+    const cat = (res.category || '').toLowerCase();
+    const q = (searchTerm || '').toLowerCase();
+    const matchesSearch = !q || title.includes(q) || cat.includes(q);
     const matchesCat = selectedCategory === 'All' || res.category === selectedCategory;
     return matchesSearch && matchesCat;
   });
@@ -82,7 +90,7 @@ const StudyResources = () => {
               </h3>
 
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                By <strong>{res.author}</strong> • {res.downloads.toLocaleString()} downloads
+                By <strong>{res.author}</strong> • {(res.downloads || 0).toLocaleString()} downloads
               </div>
             </div>
 

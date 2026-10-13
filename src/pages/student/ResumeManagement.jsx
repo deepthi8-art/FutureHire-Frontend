@@ -4,9 +4,12 @@ import { portalService } from '../../services/portalService';
 import {
   FileText,
   UploadCloud,
+  CheckCircle,
   Trash2,
   Download,
   AlertCircle,
+  Sparkles,
+  RefreshCw,
   FileCheck
 } from 'lucide-react';
 
@@ -39,12 +42,15 @@ const ResumeManagement = () => {
 
     setIsUploading(true);
     try {
-      const resume = await portalService.uploadResume(selectedFile);
-      setResumeData(resume);
+      const uploaded = await portalService.uploadResume(selectedFile);
+      if (!uploaded) throw new Error('The server did not return the uploaded resume.');
+      setResumeData(uploaded);
       setSelectedFile(null);
-      showToast('Resume uploaded successfully.', 'success');
-    } catch (error) {
-      showToast(error.response?.data?.message || error.message || 'Resume upload failed.', 'error');
+      showToast('Resume uploaded successfully. ATS scoring is not configured.', 'success');
+    } catch (err) {
+      console.error('Resume upload error:', err);
+      const msg = err.response?.data?.message || err.message || 'Upload failed';
+      showToast(`Upload error: ${msg}`, 'error');
     } finally {
       setIsUploading(false);
     }
@@ -60,17 +66,20 @@ const ResumeManagement = () => {
     }
   };
 
-  const handleDownloadResume = async () => {
+  const handleDownloadResume = async (e) => {
+    e.preventDefault();
     try {
-      const file = await portalService.downloadResume();
-      const url = URL.createObjectURL(file);
+      const blob = await portalService.downloadResumeBlob();
+      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.download = resumeData.fileName;
+      link.setAttribute('download', resumeData?.fileName || 'resume.pdf');
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      showToast(error.response?.data?.message || error.message || 'Resume download failed.', 'error');
+      link.remove();
+      showToast(`Downloaded ${resumeData?.fileName}`, 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Resume download failed.', 'error');
     }
   };
 
@@ -81,7 +90,7 @@ const ResumeManagement = () => {
       <div>
         <h1 style={{ fontSize: '1.85rem' }}>Resume Management & ATS Optimization</h1>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-          Store and manage your current PDF resume.
+          Upload your engineering resume in PDF format for automated ATS score analysis and campus drive readiness
         </p>
       </div>
 
@@ -161,7 +170,7 @@ const ResumeManagement = () => {
                   <div>
                     <div style={{ fontWeight: '700', fontSize: '0.925rem' }}>{resumeData.fileName}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Uploaded: {resumeData.uploadedAt?.slice(0, 10)} • Size: {resumeData.fileSize}
+                      Uploaded: {resumeData.uploadedAt} • Size: {resumeData.fileSize}
                     </div>
                   </div>
                 </div>
@@ -171,17 +180,14 @@ const ResumeManagement = () => {
                 </span>
               </div>
 
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Automated ATS analysis is not configured for this deployment.
-              </p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Automated ATS analysis is not configured.</p>
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button
-                  type="button"
+                  onClick={handleDownloadResume}
                   className="btn btn-secondary btn-sm"
                   style={{ flex: 1 }}
-                  onClick={handleDownloadResume}
                 >
                   <Download size={16} /> Download Resume
                 </button>

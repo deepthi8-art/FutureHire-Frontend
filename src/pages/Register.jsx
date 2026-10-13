@@ -7,8 +7,11 @@ import {
   Mail,
   Lock,
   Building,
+  BookOpen,
+  Calendar,
   Phone,
-  ArrowRight
+  ArrowRight,
+  CheckCircle2
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 

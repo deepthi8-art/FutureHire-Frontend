@@ -2,9 +2,14 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { portalService } from '../../services/portalService';
 import {
+  Users,
   Search,
   Trash2,
-  Eye
+  Eye,
+  CheckCircle,
+  XCircle,
+  Mail,
+  Building
 } from 'lucide-react';
 
 const ManageUsers = () => {

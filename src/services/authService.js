@@ -1,4 +1,5 @@
 import api from './api';
+import { API_BASE_URL } from './api';
 
 const saveSession = (apiResult) => {
   if (!apiResult?.token) {
@@ -17,8 +18,12 @@ const saveSession = (apiResult) => {
   return { token: apiResult.token, user };
 };
 
-const getErrorMessage = (error, fallback) =>
-  error?.response?.data?.message || error?.message || fallback;
+const getApiErrorMessage = (error, action) => {
+  if (error.response?.data?.message) return error.response.data.message;
+  if (error.code === 'ECONNABORTED') return `The backend at ${API_BASE_URL} did not respond in time. Start Spring Boot and try again.`;
+  if (!error.response) return `Cannot connect to the backend at ${API_BASE_URL}. Start Spring Boot and try again.`;
+  return error.message || `${action} failed.`;
+};
 
 export const authService = {
   login: async (credentials) => {
@@ -27,7 +32,7 @@ export const authService = {
       const apiResult = response.data?.data || response.data;
       return saveSession(apiResult);
     } catch (err) {
-      throw new Error(getErrorMessage(err, 'Login failed. Please try again.'));
+      throw new Error(getApiErrorMessage(err, 'Login'));
     }
   },
 
@@ -45,7 +50,7 @@ export const authService = {
       const apiResult = response.data?.data || response.data;
       return saveSession(apiResult);
     } catch (err) {
-      throw new Error(getErrorMessage(err, 'Registration failed. Please try again.'));
+      throw new Error(getApiErrorMessage(err, 'Registration'));
     }
   },
 

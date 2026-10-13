@@ -54,7 +54,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   return (
     <aside
-      className={`sidebar-nav${isOpen ? ' is-open' : ''}`}
+      className="sidebar-nav"
       style={{ width: '256px', position: 'sticky', top: 0, height: '100vh', flexShrink: 0 }}
     >
       {/* Role Header */}

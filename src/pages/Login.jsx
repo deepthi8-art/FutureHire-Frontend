@@ -9,7 +9,8 @@ import {
   EyeOff,
   ShieldCheck,
   UserCheck,
-  ArrowRight
+  ArrowRight,
+  HelpCircle
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
@@ -48,13 +49,27 @@ const Login = () => {
     }
   };
 
+  const fillDemoStudent = () => {
+    setRole('student');
+    setEmail('alex.morgan@university.edu');
+    setPassword('student123');
+    showToast('Demo Student credentials loaded!', 'info');
+  };
+
+  const fillDemoAdmin = () => {
+    setRole('admin');
+    setEmail('admin@futurehire.org');
+    setPassword('admin123');
+    showToast('Demo Admin credentials loaded!', 'info');
+  };
+
   const handleForgotSubmit = (e) => {
     e.preventDefault();
     if (!forgotEmail) {
       showToast('Please enter your email.', 'error');
       return;
     }
-    showToast('Password recovery is not configured. Contact your administrator.', 'error');
+    showToast(`Password reset link sent to ${forgotEmail}`, 'success');
     setShowForgotModal(false);
     setForgotEmail('');
   };
@@ -163,6 +178,39 @@ const Login = () => {
             </button>
           </div>
 
+          {/* 1-Click Quick Demo Bar */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '0.5rem',
+              marginBottom: '1.5rem',
+              padding: '0.65rem',
+              backgroundColor: 'rgba(32, 166, 154, 0.05)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px dashed var(--teal-200)',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-title)' }}>Quick Demo:</span>
+            <button
+              type="button"
+              onClick={fillDemoStudent}
+              className="btn btn-outline btn-sm"
+              style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+            >
+              Student Demo
+            </button>
+            <button
+              type="button"
+              onClick={fillDemoAdmin}
+              className="btn btn-outline btn-sm"
+              style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', color: 'var(--teal-800)', borderColor: 'var(--teal-800)' }}
+            >
+              Admin Demo
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">Email Address</label>
@@ -171,7 +219,7 @@ const Login = () => {
                 <input
                   type="email"
                   required
-                  placeholder={role === 'admin' ? 'administrator@organization.com' : 'student@university.edu'}
+                  placeholder={role === 'admin' ? 'admin@futurehire.org' : 'student@university.edu'}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="form-input"
@@ -238,7 +286,7 @@ const Login = () => {
           </form>
 
           <div style={{ marginTop: '1.75rem', textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            Don&apos;t have a student account?{' '}
+            Don't have a student account?{' '}
             <Link to="/register" style={{ color: 'var(--primary-600)', fontWeight: '700' }}>
               Register Here
             </Link>

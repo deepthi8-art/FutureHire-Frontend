@@ -1,7 +1,7 @@
 import React from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { Users, Trophy, Award, CheckCircle } from 'lucide-react';
+import { Target, ShieldCheck, Users, Trophy, Award, CheckCircle } from 'lucide-react';
 
 const About = () => {
   return (

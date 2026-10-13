@@ -2,10 +2,15 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { portalService } from '../../services/portalService';
 import {
+  Video,
   Calendar,
   Clock,
+  User,
+  CheckCircle,
   Star,
-  ExternalLink
+  MessageSquare,
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 
 const MockInterviews = () => {
@@ -13,17 +18,20 @@ const MockInterviews = () => {
   const [selectedSlotToBook, setSelectedSlotToBook] = useState(null);
   const [activeFeedbackModal, setActiveFeedbackModal] = useState(null);
 
-  const availableSlots = mockInterviews.filter(m => m.status === 'Available');
-  const bookedUpcoming = mockInterviews.filter(m => m.status === 'Booked');
-  const completedMocks = mockInterviews.filter(m => m.status === 'Completed');
+  const availableSlots = (mockInterviews || []).filter(m => (m.status || '').toLowerCase() === 'available');
+  const bookedUpcoming = (mockInterviews || []).filter(m => (m.status || '').toLowerCase() === 'booked');
+  const completedMocks = (mockInterviews || []).filter(m => (m.status || '').toLowerCase() === 'completed');
 
   const handleConfirmBooking = async () => {
     if (!selectedSlotToBook) return;
 
     try {
-      const booking = await portalService.bookMockSlot(selectedSlotToBook.id);
-      setMockInterviews(prev => [...prev.filter(slot => slot.id !== booking.id), booking]);
-      showToast(`Mock interview booked with ${booking.mentorName}.`, 'success');
+      const bookedSlot = await portalService.bookMockSlot(selectedSlotToBook.rawId);
+      setMockInterviews(prev => [
+        ...(prev || []).filter(slot => slot.id !== bookedSlot.id),
+        bookedSlot
+      ]);
+      showToast(`Mock interview booked with ${bookedSlot.mentorName}.`, 'success');
       setSelectedSlotToBook(null);
     } catch (error) {
       showToast(error.response?.data?.message || error.message || 'Booking failed.', 'error');

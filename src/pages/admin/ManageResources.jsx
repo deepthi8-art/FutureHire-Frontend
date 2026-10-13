@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { portalService } from '../../services/portalService';
 import {
+  FolderGit2,
   PlusCircle,
-  Trash2
+  Trash2,
+  Download,
+  FileText
 } from 'lucide-react';
 
 const ManageResources = () => {
@@ -26,19 +29,8 @@ const ManageResources = () => {
       return;
     }
 
-    const newRes = {
-      id: `RES-${Date.now()}`,
-      title: resForm.title,
-      category: resForm.category,
-      format: resForm.format,
-      size: resForm.size,
-      downloads: 0,
-      author: resForm.author,
-      fileUrl: resForm.fileUrl
-    };
-
     try {
-      const savedResource = await portalService.createAdminResource(newRes);
+      const savedResource = await portalService.createAdminResource(resForm);
       setResources(prev => [savedResource, ...prev]);
       showToast(`Resource "${resForm.title}" added.`, 'success');
       setShowAddModal(false);
@@ -48,10 +40,10 @@ const ManageResources = () => {
     }
   };
 
-  const handleDeleteResource = async (id) => {
+  const handleDeleteResource = async (rawId, id) => {
     try {
-      await portalService.deleteAdminResource(id);
-      setResources(prev => prev.filter(r => r.id !== id));
+      await portalService.deleteAdminResource(rawId);
+      setResources(prev => prev.filter(resource => resource.id !== id));
       showToast('Study resource deleted.', 'info');
     } catch (error) {
       showToast(error.response?.data?.message || error.message || 'Could not delete resource.', 'error');
@@ -87,7 +79,7 @@ const ManageResources = () => {
               </div>
             </div>
 
-            <button onClick={() => handleDeleteResource(res.id)} className="btn btn-danger btn-sm" style={{ width: '100%' }}>
+            <button onClick={() => handleDeleteResource(res.rawId, res.id)} className="btn btn-danger btn-sm" style={{ width: '100%' }}>
               <Trash2 size={15} /> Remove Resource
             </button>
           </div>

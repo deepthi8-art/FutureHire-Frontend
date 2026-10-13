@@ -8,7 +8,8 @@ import {
   Bell,
   LogOut,
   Menu,
-  Search
+  Search,
+  ShieldCheck
 } from 'lucide-react';
 
 const Navbar = ({ onToggleSidebar }) => {

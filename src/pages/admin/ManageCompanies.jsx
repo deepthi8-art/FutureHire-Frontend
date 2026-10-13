@@ -2,13 +2,20 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { portalService } from '../../services/portalService';
 import {
+  Building,
   PlusCircle,
-  Trash2
+  Edit,
+  Trash2,
+  DollarSign,
+  MapPin,
+  CheckCircle,
+  Search
 } from 'lucide-react';
 
 const ManageCompanies = () => {
   const { companies, setCompanies, showToast } = useAuth();
   
+  const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   
   const [companyForm, setCompanyForm] = useState({
@@ -63,10 +70,10 @@ const ManageCompanies = () => {
     }
   };
 
-  const handleDeleteCompany = async (id, name) => {
+  const handleDeleteCompany = async (rawId, id, name) => {
     if (window.confirm(`Delete company ${name}?`)) {
       try {
-        await portalService.deleteAdminCompany(id);
+        await portalService.deleteAdminCompany(rawId);
         setCompanies(prev => prev.filter(c => c.id !== id));
         showToast(`Company ${name} removed.`, 'info');
       } catch (error) {
@@ -115,7 +122,7 @@ const ManageCompanies = () => {
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={() => handleDeleteCompany(comp.id, comp.name)} className="btn btn-danger btn-sm" style={{ width: '100%' }}>
+              <button onClick={() => handleDeleteCompany(comp.rawId, comp.id, comp.name)} className="btn btn-danger btn-sm" style={{ width: '100%' }}>
                 <Trash2 size={15} /> Delete Company
               </button>
             </div>

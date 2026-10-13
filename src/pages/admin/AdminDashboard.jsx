@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import StatCard from '../../components/StatCard';
@@ -7,7 +7,10 @@ import {
   Building,
   HelpCircle,
   Video,
-  ShieldCheck
+  BarChart3,
+  ShieldCheck,
+  PlusCircle,
+  ArrowRight
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -20,27 +23,12 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { portalService } from '../../services/portalService';
+import { departmentDistributionData, progressChartData } from '../../data/mockData';
 
 const COLORS = ['#123B3A', '#20A69A', '#0D9488', '#10B981', '#F59E0B'];
 
 const AdminDashboard = () => {
   const { adminUsers, codingProblems, companies, mockInterviews } = useAuth();
-  const [departmentDistribution, setDepartmentDistribution] = useState([]);
-
-  useEffect(() => {
-    portalService.getAdminOverviewReports().then(report => {
-      if (Array.isArray(report?.departmentDistribution)) {
-        setDepartmentDistribution(report.departmentDistribution);
-      }
-    });
-  }, []);
-
-  const inventoryData = [
-    { name: 'Companies', value: companies.length },
-    { name: 'Coding problems', value: codingProblems.length },
-    { name: 'Interview slots', value: mockInterviews.length }
-  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -71,13 +59,17 @@ const AdminDashboard = () => {
           title="Registered Students"
           value={(adminUsers?.length || 0).toString()}
           icon={Users}
+          trend="up"
+          trendValue="+18 this week"
           color="teal"
-          description="Student accounts"
+          description="Across 5 Departments"
         />
         <StatCard
           title="Question Bank"
           value={(codingProblems?.length || 0).toString()}
           icon={HelpCircle}
+          trend="up"
+          trendValue="Active"
           color="cyan"
           description="DSA & Aptitude"
         />
@@ -85,6 +77,8 @@ const AdminDashboard = () => {
           title="Partner Companies"
           value={(companies?.length || 0).toString()}
           icon={Building}
+          trend="up"
+          trendValue="Tier-1 Drives"
           color="teal"
           description="Active Campus Recruiter"
         />
@@ -92,6 +86,8 @@ const AdminDashboard = () => {
           title="Mock Interviews"
           value={(mockInterviews?.length || 0).toString()}
           icon={Video}
+          trend="up"
+          trendValue="92% Completed"
           color="emerald"
           description="Total Scheduled Slots"
         />
@@ -105,7 +101,7 @@ const AdminDashboard = () => {
           <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Student Distribution by Department</h3>
           <div style={{ height: '250px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={departmentDistribution} layout="vertical">
+              <BarChart data={departmentDistributionData} layout="vertical">
                 <XAxis type="number" stroke="#94A3B8" fontSize={12} />
                 <YAxis dataKey="name" type="category" stroke="#94A3B8" fontSize={11} width={130} />
                 <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
@@ -117,12 +113,16 @@ const AdminDashboard = () => {
 
         {/* Test Performance Pie Chart */}
         <div className="card">
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Portal Inventory</h3>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Student Qualification Ratio</h3>
           <div style={{ height: '250px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={inventoryData}
+                  data={[
+                    { name: 'Dream Qualified (>85%)', value: 45 },
+                    { name: 'Digital Qualified (70-85%)', value: 35 },
+                    { name: 'Needs Practice (<70%)', value: 20 }
+                  ]}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -130,7 +130,7 @@ const AdminDashboard = () => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {inventoryData.map((entry, index) => (
+                  {departmentDistributionData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

@@ -2,9 +2,15 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { portalService } from '../../services/portalService';
 import {
+  HelpCircle,
+  Code,
+  Brain,
   PlusCircle,
+  Edit,
   Trash2,
-  Search
+  Search,
+  CheckCircle,
+  Sparkles
 } from 'lucide-react';
 
 const ManageQuestions = () => {
@@ -57,10 +63,10 @@ const ManageQuestions = () => {
     }
   };
 
-  const handleDeleteProblem = async (id, title) => {
+  const handleDeleteProblem = async (rawId, id, title) => {
     if (window.confirm(`Delete question "${title}"?`)) {
       try {
-        await portalService.deleteAdminCodingProblem(id);
+        await portalService.deleteAdminCodingProblem(rawId);
         setCodingProblems(prev => prev.filter(p => p.id !== id));
         showToast('Question deleted.', 'info');
       } catch (error) {
@@ -151,7 +157,7 @@ const ManageQuestions = () => {
                   </td>
                   <td style={{ padding: '0.95rem 1.25rem', textAlign: 'right' }}>
                     <button
-                      onClick={() => handleDeleteProblem(p.id, p.title)}
+                      onClick={() => handleDeleteProblem(p.rawId, p.id, p.title)}
                       className="btn btn-danger btn-sm"
                     >
                       <Trash2 size={15} /> Delete

@@ -2,12 +2,18 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { portalService } from '../../services/portalService';
 import {
+  Code,
   Search,
+  Filter,
   CheckCircle,
   Play,
   Send,
   Terminal,
-  FileCode
+  FileCode,
+  Check,
+  XCircle,
+  HelpCircle,
+  Sparkles
 } from 'lucide-react';
 
 const CodingPractice = () => {
@@ -24,32 +30,43 @@ const CodingPractice = () => {
   const [outputConsole, setOutputConsole] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
 
-  const categories = ['All', ...new Set(codingProblems.map(p => p.category))];
+  const categories = ['All', ...new Set((codingProblems || []).map(p => p.category).filter(Boolean))];
 
-  const filteredProblems = codingProblems.filter(p => {
-    const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) || p.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDifficulty = selectedDifficulty === 'All' || p.difficulty === selectedDifficulty;
+  const filteredProblems = (codingProblems || []).filter(p => {
+    const title = (p.title || '').toLowerCase();
+    const cat = (p.category || '').toLowerCase();
+    const q = (searchTerm || '').toLowerCase();
+    const matchesSearch = !q || title.includes(q) || cat.includes(q);
+    const matchesDifficulty = selectedDifficulty === 'All' || (p.difficulty || '').toLowerCase() === selectedDifficulty.toLowerCase();
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
     return matchesSearch && matchesDifficulty && matchesCategory;
   });
 
   const handleOpenProblem = (problem) => {
     setActiveProblem(problem);
-    setUserCode(problem.starterCode[selectedLanguage] || problem.starterCode.javascript || '');
+    const starters = problem.starterCode || {
+      javascript: `function solution() {\n  // Write JavaScript solution\n}`,
+      python: `def solution():\n    # Write Python solution\n    pass`,
+      java: `class Solution {\n    public void solve() {\n        // Write Java solution\n    }\n}`
+    };
+    setUserCode(starters[selectedLanguage] || starters.javascript || '');
     setOutputConsole(null);
   };
 
   const handleLanguageChange = (lang) => {
     setSelectedLanguage(lang);
-    if (activeProblem && activeProblem.starterCode[lang]) {
-      setUserCode(activeProblem.starterCode[lang]);
+    if (activeProblem) {
+      const starters = activeProblem.starterCode || {};
+      if (starters[lang]) {
+        setUserCode(starters[lang]);
+      }
     }
   };
 
   const handleRunCode = () => {
     setOutputConsole({
       status: 'Unavailable',
-      text: 'Code execution is not configured on this server. No code was run.'
+      text: 'Code execution is not configured. No code was run.'
     });
   };
 
@@ -63,17 +80,20 @@ const CodingPractice = () => {
     setOutputConsole({ status: 'Submitting', text: 'Saving your submission...' });
     try {
       const submission = await portalService.submitCodingSolution(
-        activeProblem.id,
+        activeProblem.rawId,
         userCode,
         selectedLanguage
       );
       setOutputConsole({
         status: submission.status,
-        text: 'Submission saved. Automated grading is not configured.'
+        text: 'Submission saved. Automated evaluation is not configured.'
       });
-      showToast('Your solution was submitted for review.', 'success');
+      showToast('Your solution was submitted.', 'success');
     } catch (error) {
-      setOutputConsole({ status: 'Error', text: error.response?.data?.message || error.message });
+      setOutputConsole({
+        status: 'Error',
+        text: error.response?.data?.message || error.message || 'Submission failed.'
+      });
       showToast(error.response?.data?.message || error.message || 'Submission failed.', 'error');
     } finally {
       setIsRunning(false);

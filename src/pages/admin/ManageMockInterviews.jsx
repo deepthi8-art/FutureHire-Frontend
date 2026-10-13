@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { portalService } from '../../services/portalService';
 import {
+  CalendarCheck,
   PlusCircle,
+  Clock,
+  User,
+  Video,
+  CheckCircle,
+  Edit,
   MessageSquare
 } from 'lucide-react';
 
@@ -42,7 +48,7 @@ const ManageMockInterviews = () => {
 
     try {
       const savedSlot = await portalService.createAdminMockSlot(newSlot);
-      setMockInterviews(prev => [savedSlot, ...prev]);
+      setMockInterviews(prev => [savedSlot, ...(prev || [])]);
       showToast('New mock interview slot scheduled.', 'success');
       setShowScheduleModal(false);
     } catch (error) {
@@ -55,7 +61,7 @@ const ManageMockInterviews = () => {
     if (!activeFeedbackModal) return;
 
     if (!activeFeedbackModal.bookingId) {
-      showToast('Feedback can only be submitted for a booked interview.', 'error');
+      showToast('Feedback is available after a student books this slot.', 'error');
       return;
     }
 
@@ -64,10 +70,9 @@ const ManageMockInterviews = () => {
       strengths: feedbackForm.strengths,
       areasToImprove: feedbackForm.areasToImprove
     };
-
     try {
       await portalService.submitAdminMockFeedback(activeFeedbackModal.bookingId, feedback);
-      setMockInterviews(prev => prev.map(slot => slot.id === activeFeedbackModal.id
+      setMockInterviews(prev => (prev || []).map(slot => slot.id === activeFeedbackModal.id
         ? { ...slot, status: 'Completed', feedback }
         : slot));
       showToast('Interview feedback submitted.', 'success');

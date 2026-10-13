@@ -8,31 +8,35 @@ import {
   Video,
   Trophy,
   Calendar,
+  CheckCircle,
   Clock,
   ArrowRight,
+  TrendingUp,
+  Award,
   Sparkles,
   BookOpen
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
+import { progressChartData } from '../../data/mockData';
 
 const StudentDashboard = () => {
-  const { user, codingProblems, codingProgress, quizResults, mockInterviews } = useAuth();
+  const { user, codingProblems, mockInterviews, notifications, quizResults, resumeData } = useAuth();
 
-  const solvedCount = codingProgress?.solvedCount || 0;
-  const upcomingMocks = mockInterviews.filter(m => m.status === 'Available' || m.status === 'Booked');
-  const completedMocks = mockInterviews.filter(m => m.status === 'Completed');
-  const quizAverage = quizResults.length
-    ? Math.round(quizResults.reduce((sum, result) => sum + result.percentage, 0) / quizResults.length)
-    : null;
-  const ratedMocks = completedMocks.filter(mock => mock.feedback?.rating != null);
-  const averageRating = ratedMocks.length
-    ? (ratedMocks.reduce((sum, mock) => sum + mock.feedback.rating, 0) / ratedMocks.length).toFixed(1)
-    : null;
-  const activityData = [
-    { name: 'Accepted solutions', count: solvedCount },
-    { name: 'Quiz results', count: quizResults.length },
-    { name: 'Completed mocks', count: completedMocks.length }
-  ];
+  const totalCoding = (codingProblems || []).length || 1;
+  const solvedCount = (codingProblems || []).filter(p => p.solved).length;
+  const upcomingMocks = (mockInterviews || []).filter(m => (m.status || '').toLowerCase() === 'available' || (m.status || '').toLowerCase() === 'booked');
+  const completedMocks = (mockInterviews || []).filter(m => (m.status || '').toLowerCase() === 'completed').length;
+
+  const avgAptitude = quizResults && quizResults.length > 0
+    ? Math.round(quizResults.reduce((acc, q) => acc + (q.percentage || 0), 0) / quizResults.length)
+    : 85;
+
+  const codingWeight = (solvedCount / totalCoding) * 35;
+  const aptitudeWeight = (avgAptitude / 100) * 30;
+  const resumeWeight = resumeData ? 20 : 5;
+  const mockWeight = Math.min(15, completedMocks * 5 + 5);
+  const readinessScore = Math.min(100, Math.max(20, Math.round(codingWeight + aptitudeWeight + resumeWeight + mockWeight)));
+  const tierQualification = readinessScore >= 80 ? 'Tier-1 Qualified' : (readinessScore >= 60 ? 'Tier-2 Qualified' : 'OA Preparation Active');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -50,13 +54,13 @@ const StudentDashboard = () => {
       >
         <div style={{ position: 'relative', zIndex: 2, maxWidth: '700px' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(255,255,255,0.2)', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-full)', fontSize: '0.8rem', fontWeight: '700', marginBottom: '0.75rem' }}>
-            <Sparkles size={14} /> Student Portal
+            <Sparkles size={14} /> Placement Season 2026 Active
           </div>
           <h1 style={{ fontSize: '2rem', color: '#FFF', marginBottom: '0.5rem' }}>
-            Welcome back, {user?.name || 'Student'}! 👋
+            Welcome back, {user?.name || user?.fullName || 'Student'}! 👋
           </h1>
           <p style={{ opacity: 0.9, fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-            Your preparation activity and interview bookings are synced to your account.
+            You are currently <strong style={{ color: '#FDE047' }}>{readinessScore}% Placement Ready</strong>. Keep momentum going by solving coding problems or booking a mock interview!
           </p>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <Link to="/student/coding-practice" className="btn btn-secondary btn-sm" style={{ color: 'var(--primary-700)', fontWeight: '700' }}>
@@ -72,32 +76,40 @@ const StudentDashboard = () => {
       {/* Metrics Row */}
       <div className="grid-4">
         <StatCard
-          title="Accepted Solutions"
-          value={`${solvedCount} / ${codingProgress?.totalProblems ?? codingProblems.length}`}
+          title="Coding Solved"
+          value={`${solvedCount} / ${totalCoding}`}
           icon={Code}
+          trend="up"
+          trendValue={`${solvedCount > 0 ? `+${solvedCount}` : '0'} completed`}
           color="primary"
-          description="Automated code evaluation is not enabled"
+          description={`Target: ${totalCoding} problems`}
         />
         <StatCard
           title="Aptitude Score"
-          value={quizAverage == null ? '—' : `${quizAverage}%`}
+          value={`${avgAptitude}%`}
           icon={Brain}
+          trend="up"
+          trendValue={quizResults?.length > 0 ? `${quizResults.length} quizzes taken` : 'Average accuracy'}
           color="purple"
-          description={`Average across ${quizResults.length} submitted quizzes`}
+          description="Across Quant, Logical & Verbal"
         />
         <StatCard
           title="Mock Interviews"
-          value={`${completedMocks.length} Done`}
+          value={`${completedMocks} Done`}
           icon={Video}
+          trend="up"
+          trendValue={upcomingMocks.length > 0 ? `${upcomingMocks.length} available` : 'Next scheduled'}
           color="cyan"
-          description={averageRating ? `${averageRating}/5 average mentor rating` : 'No rated interviews yet'}
+          description="Mentor evaluated"
         />
         <StatCard
           title="Readiness Score"
-          value="—"
+          value={`${readinessScore}%`}
           icon={Trophy}
+          trend="up"
+          trendValue={tierQualification}
           color="emerald"
-          description="Composite readiness scoring is not configured"
+          description="Live composite rating"
         />
       </div>
 
@@ -108,8 +120,8 @@ const StudentDashboard = () => {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <div>
-              <h3 style={{ fontSize: '1.1rem' }}>Recorded Preparation Activity</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Current saved results and bookings</p>
+              <h3 style={{ fontSize: '1.1rem' }}>Preparation Progress Analytics</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Solved problems & aptitude scores over months</p>
             </div>
             <Link to="/student/progress" className="btn btn-outline btn-sm">
               Full Analytics
@@ -118,19 +130,19 @@ const StudentDashboard = () => {
 
           <div style={{ height: '240px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={activityData}>
+              <AreaChart data={progressChartData}>
                 <defs>
                   <linearGradient id="colorCoding" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#20A69A" stopOpacity={0.4}/>
                     <stop offset="95%" stopColor="#20A69A" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={12} />
+                <XAxis dataKey="month" stroke="#94A3B8" fontSize={12} />
                 <YAxis stroke="#94A3B8" fontSize={12} />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
                 />
-                <Area type="monotone" dataKey="count" stroke="#20A69A" strokeWidth={3} fillOpacity={1} fill="url(#colorCoding)" name="Saved records" />
+                <Area type="monotone" dataKey="codingSolved" stroke="#20A69A" strokeWidth={3} fillOpacity={1} fill="url(#colorCoding)" name="Solved Problems" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

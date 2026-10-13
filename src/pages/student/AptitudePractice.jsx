@@ -3,14 +3,16 @@ import { useAuth } from '../../context/AuthContext';
 import { portalService } from '../../services/portalService';
 import confetti from 'canvas-confetti';
 import {
+  Brain,
   Clock,
   HelpCircle,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  RotateCcw,
 } from 'lucide-react';
 
 const AptitudePractice = () => {
-  const { aptitudeQuizzes, showToast } = useAuth();
+  const { aptitudeQuizzes, showToast, setQuizResults } = useAuth();
 
   const [activeQuiz, setActiveQuiz] = useState(null);
   const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -22,14 +24,14 @@ const AptitudePractice = () => {
 
   const handleStartQuiz = async (quiz) => {
     try {
-      const questions = await portalService.getQuizQuestions(quiz.id);
+      const questions = await portalService.getQuizQuestions(quiz.rawId || quiz.id);
       if (!questions?.length) throw new Error('This quiz has no questions yet.');
       setActiveQuiz({ ...quiz, questions });
       setCurrentQIndex(0);
       setSelectedAnswers({});
       setIsSubmitted(false);
       setScoreResult(null);
-      setTimeLeft(quiz.durationMinutes * 60);
+      setTimeLeft((quiz.durationMinutes || 15) * 60);
       showToast(`Started "${quiz.title}". Good luck!`, 'info');
     } catch (error) {
       showToast(error.response?.data?.message || error.message || 'Could not load this quiz.', 'error');
@@ -45,10 +47,11 @@ const AptitudePractice = () => {
     if (!activeQuiz || isSubmitted || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const result = await portalService.submitQuiz(activeQuiz.id, selectedAnswers);
+      const result = await portalService.submitQuiz(activeQuiz.rawId || activeQuiz.id, selectedAnswers);
       const percentage = Number(result.percentage);
       setScoreResult({ correct: result.score, total: result.totalQuestions, percentage });
       setIsSubmitted(true);
+      setQuizResults(prev => [result, ...(prev || [])]);
       if (percentage >= 70) confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
       showToast(`Quiz submitted. Score: ${result.score}/${result.totalQuestions} (${percentage}%).`, 'success');
     } catch (error) {
@@ -56,24 +59,20 @@ const AptitudePractice = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [activeQuiz, isSubmitted, isSubmitting, selectedAnswers, showToast]);
+  }, [activeQuiz, isSubmitted, isSubmitting, selectedAnswers, setQuizResults, showToast]);
 
   useEffect(() => {
-    let timer;
-    if (activeQuiz && !isSubmitted && timeLeft > 0) {
-      timer = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            handleSubmitQuiz();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [activeQuiz, isSubmitted, timeLeft, handleSubmitQuiz]);
+    if (!activeQuiz || isSubmitted || timeLeft <= 0) return undefined;
+    const timer = setTimeout(() => {
+      if (timeLeft === 1) {
+        setTimeLeft(0);
+        handleSubmitQuiz();
+      } else {
+        setTimeLeft(current => current - 1);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [activeQuiz, handleSubmitQuiz, isSubmitted, timeLeft]);
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -104,10 +103,10 @@ const AptitudePractice = () => {
                 <h3 style={{ fontSize: '1.15rem', marginBottom: '0.5rem' }}>{quiz.title}</h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.825rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <HelpCircle size={15} /> {quiz.questions.length} Questions
+                    <HelpCircle size={15} /> {quiz.questions?.length || 20} Questions
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <Clock size={15} /> {quiz.durationMinutes} Mins
+                    <Clock size={15} /> {quiz.durationMinutes || 20} Mins
                   </span>
                 </div>
               </div>
@@ -178,7 +177,7 @@ const AptitudePractice = () => {
           )}
 
           {/* Question Navigation & Question Box */}
-          {activeQuiz.questions.length > 0 && (
+          {activeQuiz.questions && activeQuiz.questions.length > 0 && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <span>Question {currentQIndex + 1} of {activeQuiz.questions.length}</span>
@@ -187,12 +186,12 @@ const AptitudePractice = () => {
 
               {/* Question Text */}
               <h3 style={{ fontSize: '1.15rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-                {activeQuiz.questions[currentQIndex].question}
+                {activeQuiz.questions[currentQIndex]?.question || activeQuiz.questions[currentQIndex]?.questionText}
               </h3>
 
               {/* Options */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.75rem' }}>
-                {activeQuiz.questions[currentQIndex].options.map((opt, optIdx) => {
+                {(activeQuiz.questions[currentQIndex]?.options || []).map((opt, optIdx) => {
                   const q = activeQuiz.questions[currentQIndex];
                   const isSelected = selectedAnswers[q.id] === optIdx;
 
@@ -209,7 +208,7 @@ const AptitudePractice = () => {
                     <button
                       key={optIdx}
                       onClick={() => handleOptionSelect(q.id, optIdx)}
-                      disabled={isSubmitted}
+                      disabled={isSubmitted || isSubmitting}
                       style={{
                         padding: '0.85rem 1.1rem',
                         borderRadius: 'var(--radius-md)',

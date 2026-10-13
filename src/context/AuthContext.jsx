@@ -10,11 +10,10 @@ export const AuthProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => localStorage.getItem('futurehire_theme') || 'light');
   const [toasts, setToasts] = useState([]);
 
-  // Managed Application State initialized with defaults & synced with Spring Boot API
   const [codingProblems, setCodingProblems] = useState([]);
   const [codingProgress, setCodingProgress] = useState(null);
-  const [aptitudeQuizzes, setAptitudeQuizzes] = useState([]);
   const [quizResults, setQuizResults] = useState([]);
+  const [aptitudeQuizzes, setAptitudeQuizzes] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [experiences, setExperiences] = useState([]);
   const [mockInterviews, setMockInterviews] = useState([]);
@@ -22,22 +21,27 @@ export const AuthProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);
   const [resumeData, setResumeData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const clearPortalState = () => {
+    setCodingProblems([]);
+    setCodingProgress(null);
+    setQuizResults([]);
+    setAptitudeQuizzes([]);
+    setCompanies([]);
+    setExperiences([]);
+    setMockInterviews([]);
+    setResources([]);
+    setNotifications([]);
+    setAdminUsers([]);
+    setResumeData(null);
+  };
 
   useEffect(() => {
     const handleUnauthorized = () => {
       setUser(null);
       setIsAuthenticated(false);
-      setCodingProblems([]);
-      setCodingProgress(null);
-      setAptitudeQuizzes([]);
-      setQuizResults([]);
-      setCompanies([]);
-      setExperiences([]);
-      setMockInterviews([]);
-      setResources([]);
-      setNotifications([]);
-      setAdminUsers([]);
-      setResumeData(null);
+      clearPortalState();
     };
 
     window.addEventListener('futurehire:unauthorized', handleUnauthorized);
@@ -48,7 +52,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
-        const [liveProblems, liveProgress, liveQuizzes, liveQuizResults, liveCompanies, liveResources, liveNotifs, liveMockSlots, liveExperiences, liveBookings] = await Promise.allSettled([
+        const [liveProblems, liveProgress, liveQuizzes, liveResults, liveCompanies, liveResources, liveNotifs, liveMockSlots, liveBookings, liveExperiences] = await Promise.allSettled([
           portalService.getCodingProblems(),
           portalService.getCodingProgress(),
           portalService.getAptitudeQuizzes(),
@@ -57,18 +61,17 @@ export const AuthProvider = ({ children }) => {
           portalService.getStudyResources(),
           portalService.getNotifications(),
           portalService.getAvailableMockSlots(),
+          portalService.getMyMockInterviews(),
           portalService.getInterviewExperiences(),
-          portalService.getMyMockBookings(),
         ]);
 
         if (liveProblems.status === 'fulfilled' && Array.isArray(liveProblems.value))
           setCodingProblems(liveProblems.value);
-        if (liveProgress.status === 'fulfilled' && liveProgress.value)
-          setCodingProgress(liveProgress.value);
+        if (liveProgress.status === 'fulfilled') setCodingProgress(liveProgress.value);
+        if (liveResults.status === 'fulfilled' && Array.isArray(liveResults.value))
+          setQuizResults(liveResults.value);
         if (liveQuizzes.status === 'fulfilled' && Array.isArray(liveQuizzes.value))
           setAptitudeQuizzes(liveQuizzes.value);
-        if (liveQuizResults.status === 'fulfilled' && Array.isArray(liveQuizResults.value))
-          setQuizResults(liveQuizResults.value);
         if (liveCompanies.status === 'fulfilled' && Array.isArray(liveCompanies.value))
           setCompanies(liveCompanies.value);
         if (liveResources.status === 'fulfilled' && Array.isArray(liveResources.value))
@@ -90,21 +93,24 @@ export const AuthProvider = ({ children }) => {
 
     const fetchAdminData = async () => {
       try {
-        const [liveUsers, liveMockInterviews] = await Promise.all([
+        const [liveUsers, liveMockSlots] = await Promise.all([
           portalService.getAdminUsers(),
           portalService.getAdminMockInterviews()
         ]);
         if (Array.isArray(liveUsers)) setAdminUsers(liveUsers);
-        if (Array.isArray(liveMockInterviews)) setMockInterviews(liveMockInterviews);
+        if (Array.isArray(liveMockSlots)) setMockInterviews(liveMockSlots);
       } catch (e) {
         console.warn('Admin data sync failed.', e);
       }
     };
 
     if (isAuthenticated) {
-      fetchBackendData();
+      setIsLoading(true);
+      fetchBackendData().finally(() => setIsLoading(false));
       const currentUser = authService.getCurrentUser();
-      if (currentUser?.role === 'admin') fetchAdminData();
+      if (currentUser?.role === 'admin' || currentUser?.role === 'ROLE_ADMIN') fetchAdminData();
+      if (currentUser?.role === 'student' || currentUser?.role === 'ROLE_STUDENT')
+        portalService.getResumeDetails().then(setResumeData);
     }
   }, [isAuthenticated]);
 
@@ -130,11 +136,11 @@ export const AuthProvider = ({ children }) => {
     setUser(result.user);
     setIsAuthenticated(true);
     showToast(`Welcome back, ${result.user.name}!`, 'success');
-    // Fetch resume for student accounts after login
-    if (result.user.role === 'student') {
+    // Fetch resume and quiz results for student accounts after login
+    if (result.user.role === 'student' || result.user.role === 'ROLE_STUDENT') {
       portalService.getResumeDetails().then(r => { if (r) setResumeData(r); });
+      portalService.getQuizResults?.().then(r => { if (r?.length > 0) setQuizResults(r); }).catch(() => {});
     }
-
     return result.user;
   };
 
@@ -150,17 +156,7 @@ export const AuthProvider = ({ children }) => {
     authService.logout();
     setUser(null);
     setIsAuthenticated(false);
-    setCodingProblems([]);
-    setCodingProgress(null);
-    setAptitudeQuizzes([]);
-    setQuizResults([]);
-    setCompanies([]);
-    setExperiences([]);
-    setMockInterviews([]);
-    setResources([]);
-    setNotifications([]);
-    setAdminUsers([]);
-    setResumeData(null);
+    clearPortalState();
     showToast("Logged out successfully.", 'info');
   };
 
@@ -186,9 +182,11 @@ export const AuthProvider = ({ children }) => {
         codingProblems,
         setCodingProblems,
         codingProgress,
+        setCodingProgress,
+        quizResults,
+        setQuizResults,
         aptitudeQuizzes,
         setAptitudeQuizzes,
-        quizResults,
         companies,
         setCompanies,
         experiences,
@@ -203,7 +201,8 @@ export const AuthProvider = ({ children }) => {
         adminUsers,
         setAdminUsers,
         resumeData,
-        setResumeData
+        setResumeData,
+        isLoading
       }}
     >
       {children}
