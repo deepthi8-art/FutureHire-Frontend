@@ -19,7 +19,7 @@ const Navbar = ({ onToggleSidebar }) => {
   const [showNotifMenu, setShowNotifMenu] = useState(false);
 
   const isDashboard = location.pathname.startsWith('/student') || location.pathname.startsWith('/admin');
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = (notifications || []).filter(n => !n?.read).length;
 
   const handleLogout = () => {
     logout();

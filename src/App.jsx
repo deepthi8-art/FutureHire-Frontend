@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 
@@ -51,9 +52,10 @@ const DashboardLayout = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
@@ -104,6 +106,7 @@ function App() {
         </Routes>
       </Router>
     </AuthProvider>
+  </ErrorBoundary>
   );
 }
 

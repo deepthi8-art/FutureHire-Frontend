@@ -25,7 +25,7 @@ import {
 const Sidebar = ({ isOpen, onClose }) => {
   const { user, notifications } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = (notifications || []).filter(n => !n?.read).length;
 
   const studentLinks = [
     { path: '/student/dashboard',             label: 'Dashboard',            icon: LayoutDashboard },

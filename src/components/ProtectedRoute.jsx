@@ -9,9 +9,10 @@ const ProtectedRoute = ({ children, allowedRole }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRole && user.role !== allowedRole) {
-    // Role mismatch protection: redirect student to student dashboard, admin to admin dashboard
-    const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard';
+  const normalizedRole = user?.role?.toLowerCase()?.includes('admin') ? 'admin' : 'student';
+
+  if (allowedRole && normalizedRole !== allowedRole) {
+    const redirectPath = normalizedRole === 'admin' ? '/admin/dashboard' : '/student/dashboard';
     return <Navigate to={redirectPath} replace />;
   }
 

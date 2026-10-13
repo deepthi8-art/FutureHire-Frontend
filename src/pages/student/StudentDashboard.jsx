@@ -23,12 +23,12 @@ const StudentDashboard = () => {
   const { user, codingProblems, mockInterviews, notifications, quizResults, resumeData } = useAuth();
 
   const totalCoding = (codingProblems || []).length || 1;
-  const solvedCount = (codingProblems || []).filter(p => p.solved).length;
-  const upcomingMocks = (mockInterviews || []).filter(m => (m.status || '').toLowerCase() === 'available' || (m.status || '').toLowerCase() === 'booked');
-  const completedMocks = (mockInterviews || []).filter(m => (m.status || '').toLowerCase() === 'completed').length;
+  const solvedCount = (codingProblems || []).filter(p => p?.solved).length;
+  const upcomingMocks = (mockInterviews || []).filter(m => (m?.status || '').toLowerCase() === 'available' || (m?.status || '').toLowerCase() === 'booked');
+  const completedMocks = (mockInterviews || []).filter(m => (m?.status || '').toLowerCase() === 'completed').length;
 
-  const avgAptitude = quizResults && quizResults.length > 0
-    ? Math.round(quizResults.reduce((acc, q) => acc + (q.percentage || 0), 0) / quizResults.length)
+  const avgAptitude = quizResults && Array.isArray(quizResults) && quizResults.length > 0
+    ? Math.round(quizResults.reduce((acc, q) => acc + (q?.percentage || 0), 0) / quizResults.length)
     : 85;
 
   const codingWeight = (solvedCount / totalCoding) * 35;
@@ -128,9 +128,9 @@ const StudentDashboard = () => {
             </Link>
           </div>
 
-          <div style={{ height: '240px', width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={progressChartData}>
+          <div style={{ height: '240px', width: '100%', minHeight: '240px' }}>
+            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+              <AreaChart data={progressChartData || []}>
                 <defs>
                   <linearGradient id="colorCoding" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#20A69A" stopOpacity={0.4}/>
@@ -158,9 +158,9 @@ const StudentDashboard = () => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', flex: 1 }}>
-            {upcomingMocks.slice(0, 2).map((m) => (
+            {upcomingMocks.slice(0, 2).map((m, idx) => (
               <div
-                key={m.id}
+                key={m?.id || idx}
                 style={{
                   padding: '0.85rem',
                   borderRadius: 'var(--radius-md)',
@@ -169,17 +169,17 @@ const StudentDashboard = () => {
                 }}
               >
                 <div style={{ fontWeight: '700', fontSize: '0.875rem', color: 'var(--text-title)' }}>
-                  {m.type}
+                  {m?.type || 'Technical Mock Interview'}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                  {m.mentorName} ({m.mentorTitle})
+                  {m?.mentorName || 'Mentor'} {m?.mentorTitle ? `(${m.mentorTitle})` : ''}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--primary-600)', fontWeight: '600' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <Calendar size={13} /> {m.date}
+                    <Calendar size={13} /> {m?.date || 'Upcoming'}
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <Clock size={13} /> {m.time}
+                    <Clock size={13} /> {m?.time || 'Scheduled'}
                   </span>
                 </div>
               </div>
