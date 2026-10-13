@@ -8,9 +8,9 @@ export default defineConfig({
     port: 3000,
     open: true,
     proxy: {
-      // Forward all /api requests to Spring Boot backend
+      // Forward /api requests to live Render backend or local Spring Boot
       '/api': {
-        target: 'http://localhost:8081',
+        target: 'https://futurehire-backend.onrender.com',
         changeOrigin: true,
         secure: false,
       }
