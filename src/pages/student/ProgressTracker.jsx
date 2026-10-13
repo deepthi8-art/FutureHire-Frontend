@@ -163,8 +163,30 @@ const ProgressTracker = () => {
         </div>
       </div>
 
+        {activities.length === 0 ? (
+          <p>No activity recorded yet. Complete a quiz or practice interview to get started.</p>
+        ) : (
+          <ul className="activity-list">
+            {activities.map((activity, index) => (
+              <li key={activity.id ?? `${activity.type}-${index}`}>
+                <strong>
+                  {activity.title || activity.type || 'Learning activity'}
+                </strong>
+                <p>
+                  {activity.description ||
+                    activity.message ||
+                    'Activity recorded'}
+                </p>
+                {activity.date && (
+                  <time>
+                    {new Date(activity.date).toLocaleDateString()}
+                  </time>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
-};
-
-export default ProgressTracker;
+}

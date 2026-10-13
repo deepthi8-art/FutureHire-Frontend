@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { portalService } from '../../services/portalService';
+
+import React, { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Brain,
@@ -10,13 +9,16 @@ import {
   ArrowLeft,
   RotateCcw,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { portalService } from '../../services/portalService';
 
 const AptitudePractice = () => {
   const { aptitudeQuizzes, showToast, setQuizResults } = useAuth();
 
   const [activeQuiz, setActiveQuiz] = useState(null);
+  const [questions, setQuestions] = useState([]);
   const [currentQIndex, setCurrentQIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState({});
+  const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,20 +76,212 @@ const AptitudePractice = () => {
     return () => clearTimeout(timer);
   }, [activeQuiz, handleSubmitQuiz, isSubmitted, timeLeft]);
 
-  const formatTime = (seconds) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+    const timer = setTimeout(() => {
+      setTimeLeft(value => value - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [activeQuiz, isSubmitted, timeLeft]);
+
+  useEffect(() => {
+    if (
+      activeQuiz &&
+      !isSubmitted &&
+      timeLeft === 0 &&
+      questions.length > 0
+    ) {
+      submitQuiz();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, activeQuiz, isSubmitted, questions.length]);
+
+  const startQuiz = async (quiz) => {
+    setLoading(true);
+
+    try {
+      const loaded = await portalService.getQuizQuestions(quiz.id);
+
+      if (!Array.isArray(loaded) || loaded.length === 0) {
+        throw new Error('This quiz has no questions yet.');
+      }
+
+      setQuestions(loaded);
+      setActiveQuiz(quiz);
+      setCurrentQIndex(0);
+      setAnswers({});
+      setIsSubmitted(false);
+      setResult(null);
+      submitting.current = false;
+      setTimeLeft((quiz.durationMinutes || 25) * 60);
+
+      showToast(
+        `Started "${quiz.title}" with ${loaded.length} questions.`,
+        'success'
+      );
+    } catch (error) {
+      showToast(error.message || 'Unable to load quiz questions.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const selectAnswer = (questionId, answer) => {
+    if (isSubmitted) return;
+
+    setAnswers(previous => ({
+      ...previous,
+      [questionId]: answer
+    }));
+  };
+
+  const submitQuiz = async () => {
+    if (submitting.current || !activeQuiz || questions.length === 0) {
+      return;
+    }
+
+    submitting.current = true;
+    setLoading(true);
+
+    try {
+      const payload = {
+        quizId: activeQuiz.id,
+        answers: questions.map(question => ({
+          questionId: question.id,
+          selectedAnswer:
+            answers[question.id] ??
+            answers[String(question.id)] ??
+            null
+        }))
+      };
+
+      const savedResult = await portalService.submitQuiz(payload);
+
+      setResult(savedResult);
+      setIsSubmitted(true);
+
+      if (savedResult?.passed || Number(savedResult?.score) >= 70) {
+        confetti();
+      }
+
+      showToast('Quiz submitted successfully!', 'success');
+    } catch (error) {
+      submitting.current = false;
+      showToast(
+        error.message || 'Could not submit the quiz. Please try again.',
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const restartQuiz = () => {
+    setActiveQuiz(null);
+    setQuestions([]);
+    setCurrentQIndex(0);
+    setAnswers({});
+    setTimeLeft(0);
+    setIsSubmitted(false);
+    setResult(null);
+    submitting.current = false;
+  };
+
+  const formatTime = seconds => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    return `${String(minutes).padStart(2, '0')}:${String(
+      remainingSeconds
+    ).padStart(2, '0')}`;
+  };
+
+  if (!activeQuiz) {
+    return (
+      <div className="page-container">
+        <div className="page-header">
+          <h1>Aptitude Practice</h1>
+          <p>Practice your skills and track your quiz performance.</p>
+        </div>
+
+        {aptitudeQuizzes?.length ? (
+          <div className="quiz-grid">
+            {aptitudeQuizzes.map(quiz => (
+              <article className="card quiz-card" key={quiz.id}>
+                <Brain size={28} />
+                <h2>{quiz.title || quiz.name || 'Aptitude Quiz'}</h2>
+                <p>{quiz.description || 'Test your aptitude skills.'}</p>
+                <p>
+                  <Clock size={16} />{' '}
+                  {quiz.durationMinutes || 25} minutes
+                </p>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => startQuiz(quiz)}
+                >
+                  {loading ? 'Loading...' : 'Start Quiz'}
+                  <ArrowRight size={16} />
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="card">
+            <HelpCircle size={28} />
+            <p>No quizzes are available right now.</p>
+            <p>Please try again later.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (isSubmitted) {
+    const score = Number(result?.score ?? result?.percentage ?? 0);
+
+    return (
+      <div className="page-container">
+        <div className="card quiz-result">
+          <CheckCircle size={48} />
+          <h1>Quiz Completed!</h1>
+          <h2>{activeQuiz.title || activeQuiz.name}</h2>
+
+          <p>
+            Your score:{' '}
+            <strong>{score}%</strong>
+          </p>
+
+          <p>
+            Correct answers:{' '}
+            {result?.correctAnswers ?? result?.correctCount ?? '—'}
+          </p>
+
+          <p>
+            Questions attempted:{' '}
+            {Object.keys(answers).length} of {questions.length}
+          </p>
+
+          <button type="button" onClick={restartQuiz}>
+            <RotateCcw size={16} /> Back to Quizzes
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const question = questions[currentQIndex];
+  const options = question?.options || question?.choices || [];
+  const questionId = question?.id;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      
-      {/* Header */}
-      <div>
-        <h1 style={{ fontSize: '1.85rem' }}>Aptitude Practice & Speed Tests</h1>
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-          Timed quizzes covering Quantitative Aptitude, Logical Reasoning, and Verbal Ability
+    <div className="page-container">
+      <div className="page-header">
+        <h1>{activeQuiz.title || activeQuiz.name}</h1>
+        <p>
+          Question {currentQIndex + 1} of {questions.length}
+        </p>
+        <p>
+          <Clock size={18} /> {formatTime(timeLeft)}
         </p>
       </div>
 
@@ -111,69 +305,70 @@ const AptitudePractice = () => {
                 </div>
               </div>
 
+      <div className="card question-card">
+        <h2>
+          {question?.questionText ||
+            question?.question ||
+            question?.text ||
+            'Question unavailable'}
+        </h2>
+
+        <div className="answer-options">
+          {options.map((option, index) => {
+            const value =
+              typeof option === 'object'
+                ? option.value ?? option.text ?? option.label
+                : option;
+
+            const label =
+              typeof option === 'object'
+                ? option.text ?? option.label ?? option.value
+                : option;
+
+            const selected = answers[questionId] === value;
+
+            return (
               <button
-                onClick={() => handleStartQuiz(quiz)}
-                className="btn btn-primary"
-                style={{ width: '100%', padding: '0.65rem' }}
+                type="button"
+                key={option.id ?? `${questionId}-${index}`}
+                className={selected ? 'answer-option selected' : 'answer-option'}
+                onClick={() => selectAnswer(questionId, value)}
+                disabled={loading}
               >
-                Start Timed Quiz <ArrowRight size={16} />
+                <span>{String.fromCharCode(65 + index)}.</span>
+                <span>{label}</span>
+                {selected && <Check size={18} />}
               </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      )}
 
-      {/* Interactive Quiz Active Mode */}
-      {activeQuiz && (
-        <div className="card" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-          
-          {/* Quiz Top Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
-            <div>
-              <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>{activeQuiz.category}</span>
-              <h3 style={{ fontSize: '1.25rem', marginTop: '0.2rem' }}>{activeQuiz.title}</h3>
-            </div>
+        <div className="quiz-navigation">
+          <button
+            type="button"
+            disabled={currentQIndex === 0 || loading}
+            onClick={() => setCurrentQIndex(index => index - 1)}
+          >
+            <ArrowLeft size={16} /> Previous
+          </button>
 
-            {!isSubmitted && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  backgroundColor: timeLeft < 60 ? 'rgba(244, 63, 94, 0.15)' : 'var(--bg-input)',
-                  color: timeLeft < 60 ? 'var(--rose-500)' : 'var(--text-title)',
-                  padding: '0.45rem 0.85rem',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: '800',
-                  fontSize: '0.95rem'
-                }}
-              >
-                <Clock size={18} /> {formatTime(timeLeft)}
-              </div>
-            )}
-          </div>
-
-          {/* Quiz Score Header if submitted */}
-          {isSubmitted && scoreResult && (
-            <div
-              style={{
-                backgroundColor: scoreResult.percentage >= 70 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                border: `1px solid ${scoreResult.percentage >= 70 ? 'var(--emerald-500)' : 'var(--amber-500)'}`,
-                padding: '1.25rem',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: '1.5rem',
-                textAlign: 'center'
-              }}
+          {currentQIndex < questions.length - 1 ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => setCurrentQIndex(index => index + 1)}
             >
-              <h2 style={{ fontSize: '1.75rem', marginBottom: '0.25rem' }}>
-                Score: {scoreResult.correct} / {scoreResult.total} ({scoreResult.percentage}%)
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                {scoreResult.percentage >= 70
-                  ? '🌟 Excellent performance! Ready for top placement aptitude rounds.'
-                  : 'Keep practicing! Review the detailed explanations below.'}
-              </p>
-            </div>
+              Next <ArrowRight size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={submitQuiz}
+            >
+              {loading ? 'Submitting...' : 'Submit Quiz'}
+              <CheckCircle size={16} />
+            </button>
           )}
 
           {/* Question Navigation & Question Box */}
@@ -272,10 +467,7 @@ const AptitudePractice = () => {
           )}
 
         </div>
-      )}
-
+      </div>
     </div>
   );
-};
-
-export default AptitudePractice;
+}

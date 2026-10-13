@@ -1,3 +1,4 @@
+
 import api from './api';
 
 // ─── Data Mappers ────────────────────────────────────────────────────────────
@@ -130,14 +131,32 @@ export const portalService = {
     }
   },
 
-  submitCodingSolution: async (problemId, sourceCode, language) => {
-    const response = await api.post('/student/coding/submissions', { problemId, sourceCode, language });
-    return response.data?.data;
+  async submitCodingSolution(problemId, sourceCode, language) {
+    return unwrap(
+      await api.post('/student/coding/submissions', {
+        problemId,
+        sourceCode,
+        language
+      })
+    );
   },
 
-  getCodingProgress: async () => {
-    const response = await api.get('/student/coding/progress');
-    return response.data?.data;
+  // ---------------- Aptitude quizzes ----------------
+
+  async getAptitudeQuizzes() {
+    const data = unwrap(
+      await api.get('/student/aptitude/quizzes')
+    );
+
+    return Array.isArray(data)
+      ? data.map((quiz) => ({
+          ...quiz,
+          durationMinutes: quiz.durationMinutes || 15,
+          questions: Array.isArray(quiz.questions)
+            ? quiz.questions
+            : []
+        }))
+      : [];
   },
 
   // --- Student Aptitude ---
@@ -165,9 +184,32 @@ export const portalService = {
     }
   },
 
-  submitQuiz: async (quizId, answersMap) => {
-    const response = await api.post(`/student/aptitude/quizzes/${quizId}/submit`, answersMap);
-    return response.data?.data;
+  async submitQuiz(quizOrPayload, answersMap) {
+    let quizId;
+    let answers;
+
+    if (
+      quizOrPayload &&
+      typeof quizOrPayload === 'object' &&
+      !Array.isArray(quizOrPayload)
+    ) {
+      quizId = quizOrPayload.quizId;
+      answers = quizOrPayload.answers;
+    } else {
+      quizId = quizOrPayload;
+      answers = answersMap;
+    }
+
+    if (quizId == null) {
+      throw new Error('A quiz ID is required to submit the quiz.');
+    }
+
+    const response = await api.post(
+      `/student/aptitude/quizzes/${quizId}/submit`,
+      answers
+    );
+
+    return unwrap(response);
   },
 
   getQuizResults: async () => {
@@ -179,8 +221,55 @@ export const portalService = {
     }
   },
 
-  // --- Student Companies ---
-  getCompanies: async (search = '') => {
+  async getProgress() {
+    return this.getProgressOverview();
+  },
+
+  async getCodingProgress() {
+    return this.getProgressOverview();
+  },
+
+  async getQuizResults() {
+    return (
+      unwrap(
+        await api.get('/student/aptitude/results')
+      ) || []
+    );
+  },
+
+  // ---------------- Companies ----------------
+
+  async getCompanies(search = '') {
+    const response = await api.get(
+      search
+        ? '/student/companies/search'
+        : '/student/companies',
+      search ? { params: { name: search } } : {}
+    );
+
+    return unwrap(response);
+  },
+
+  // ---------------- Resume ----------------
+
+  async uploadResume(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post(
+      '/student/resumes/upload',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+
+    return unwrap(response);
+  },
+
+  async getResumeDetails() {
     try {
       const url = search ? `/student/companies/search?name=${encodeURIComponent(search)}` : '/student/companies';
       const response = await api.get(url);
@@ -430,34 +519,23 @@ export const portalService = {
     const bookingsBySlotId = new Map(
       (bookingsResponse.data?.data || []).map(booking => [booking.slot?.id, booking])
     );
-    return (slotsResponse.data?.data || []).map(slot => {
-      const booking = bookingsBySlotId.get(slot.id);
-      return {
-        ...toMockSlot(slot),
-        bookingId: booking?.id,
-        feedback: booking?.feedbackRating == null ? null : {
-          rating: booking.feedbackRating,
-          strengths: booking.feedbackStrengths,
-          areasToImprove: booking.feedbackAreasToImprove
-        }
-      };
-    });
   },
 
-  createAdminMockSlot: async (slot) => {
-    const response = await api.post('/admin/mock-interviews/slots', {
-      mentorName: slot.mentorName,
-      mentorTitle: slot.mentorTitle,
-      date: slot.date,
-      timeWindow: slot.time,
-      interviewType: slot.type
-    });
-    return toMockSlot(response.data?.data);
+  // ---------------- Interview experiences ----------------
+
+  async getInterviewExperiences() {
+    return unwrap(
+      await api.get('/student/interviews/experiences')
+    );
   },
 
-  submitAdminMockFeedback: async (bookingId, feedback) => {
-    const response = await api.put(`/admin/mock-interviews/bookings/${bookingId}/feedback`, feedback);
-    return response.data?.data;
+  async shareExperience(experience) {
+    return unwrap(
+      await api.post(
+        '/student/interviews/experiences',
+        experience
+      )
+    );
   },
 
   getAdminOverviewReports: async () => {
@@ -469,3 +547,5 @@ export const portalService = {
     }
   },
 };
+
+export default portalService;
