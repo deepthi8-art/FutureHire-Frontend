@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 // Local development goes through Vite's /api proxy; deployments set VITE_API_BASE_URL.
@@ -11,19 +10,17 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 45000,
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: import.meta.env.DEV ? 20000 : 60000,
 });
 
+// Request Interceptor: Attach JWT Bearer Token if available
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('futurehire_token');
-
-    if (token && !token.startsWith('mock-jwt-token-')) {
-      config.headers = config.headers || {};
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     // For FormData uploads (e.g. resumes), let axios/browser set multipart/form-data with boundary automatically
@@ -37,6 +34,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Response Interceptor: Global Error Handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -44,8 +42,8 @@ api.interceptors.response.use(
       // Clear token on 401 unauthorized
       localStorage.removeItem('futurehire_token');
       localStorage.removeItem('futurehire_user');
+      window.dispatchEvent(new Event('futurehire:unauthorized'));
     }
-
     return Promise.reject(error);
   }
 );
